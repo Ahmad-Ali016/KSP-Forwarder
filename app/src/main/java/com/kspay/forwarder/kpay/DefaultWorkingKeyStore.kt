@@ -1,6 +1,7 @@
 package com.kspay.forwarder.kpay
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
@@ -28,10 +29,10 @@ class DefaultWorkingKeyStore(context: Context) : WorkingKeyStore {
 
     override fun save(keys: SignInResponse) {
         cached = keys
-        prefs.edit()
-            .putString(KEY_PLATFORM_PUBLIC_KEY, keys.platformPublicKey)
-            .putString(KEY_APP_PRIVATE_KEY, keys.appPrivateKey)
-            .apply()
+        prefs.edit {
+            putString(KEY_PLATFORM_PUBLIC_KEY, keys.platformPublicKey)
+            putString(KEY_APP_PRIVATE_KEY, keys.appPrivateKey)
+        }
     }
 
     override fun get(): SignInResponse? {
@@ -44,7 +45,7 @@ class DefaultWorkingKeyStore(context: Context) : WorkingKeyStore {
 
     override fun clear() {
         cached = null
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     private companion object {
