@@ -40,3 +40,14 @@ GoogleService-Info.plist
 .env.*
 *secrets*
 keystore.properties
+
+# Heap dumps / misc build artifacts
+*.hprof
+*.apk
+*.aab
+
+# Claude Code local session state (not shared repo content)
+.claude/
+
+# Local progress tracker — personal checklist, not shared repo content
+BUILD_PROGRESS.md
