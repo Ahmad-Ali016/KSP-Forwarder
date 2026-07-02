@@ -91,3 +91,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+tasks.withType<Test> {
+    // Lets tests locate the repo-root .env (KPay parity vector, gitignored) regardless of
+    // Gradle's working directory for the test task.
+    systemProperty("rootDir", rootProject.projectDir.absolutePath)
+}
