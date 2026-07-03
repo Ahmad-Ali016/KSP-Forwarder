@@ -1,7 +1,9 @@
 package com.kspay.forwarder.kpay
 
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 /**
  * KPOS LAN client. Base URL is the terminal's local API — http://127.0.0.1:18080 for the
@@ -19,6 +21,10 @@ interface KposApi {
     /** Must be called on a client with SignedRequestInterceptor attached. */
     @POST("/v2/pos/sales")
     suspend fun sale(@Body request: SaleRequest): KposEnvelope<Map<String, Any?>?>
+
+    /** Must be called on a client with SignedRequestInterceptor attached. */
+    @GET("/v2/pos/query")
+    suspend fun query(@Query("outTradeNo") outTradeNo: String): KposEnvelope<QueryResponse>
 }
 
 /**
