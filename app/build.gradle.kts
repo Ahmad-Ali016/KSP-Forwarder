@@ -97,3 +97,7 @@ tasks.withType<Test> {
     // Gradle's working directory for the test task.
     systemProperty("rootDir", rootProject.projectDir.absolutePath)
 }
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
