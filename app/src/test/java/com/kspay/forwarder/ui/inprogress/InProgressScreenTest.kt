@@ -1,6 +1,7 @@
 package com.kspay.forwarder.ui.inprogress
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.room.Room
 import com.kspay.forwarder.data.ForwarderDatabase
@@ -27,7 +28,7 @@ import org.robolectric.RuntimeEnvironment
 class InProgressScreenTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private lateinit var db: ForwarderDatabase
     private lateinit var repository: TransactionRepository
@@ -77,5 +78,27 @@ class InProgressScreenTest {
 
         composeRule.waitUntil(timeoutMillis = 5_000) { finished != null }
         assert(finished?.state == TransactionState.SUCCEEDED) { "expected SUCCEEDED, got ${finished?.state}" }
+    }
+
+    @Test
+    fun `back press is blocked while a sale is in flight`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.POLLING)
+
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+
+        assert(composeRule.activity.onBackPressedDispatcher.hasEnabledCallbacks())
+    }
+
+    @Test
+    fun `back press is allowed once the transaction reaches a terminal state`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.SUCCEEDED)
+
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            !composeRule.activity.onBackPressedDispatcher.hasEnabledCallbacks()
+        }
     }
 }

@@ -13,6 +13,9 @@ class TransactionRepository(
     /** Live updates as the sale/poll flow writes state transitions (SALE_SENT -> POLLING -> ...). */
     fun observe(outTradeNo: String): Flow<LocalTransaction?> = dao.observeByOutTradeNo(outTradeNo)
 
+    /** Live, newest-first list of every transaction — backs the debug History screen. */
+    fun observeAll(): Flow<List<LocalTransaction>> = dao.observeAll()
+
     suspend fun createDraft(payAmountCents: String, currency: String, paymentType: Int): LocalTransaction {
         val now = System.currentTimeMillis()
         val transaction = LocalTransaction(

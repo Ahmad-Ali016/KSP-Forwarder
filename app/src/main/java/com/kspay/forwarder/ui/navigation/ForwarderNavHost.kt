@@ -15,6 +15,7 @@ import com.kspay.forwarder.ForwarderApplication
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.ui.fareentry.FareEntryScreen
 import com.kspay.forwarder.ui.history.HistoryScreen
+import com.kspay.forwarder.ui.history.HistoryViewModel
 import com.kspay.forwarder.ui.inprogress.InProgressScreen
 import com.kspay.forwarder.ui.inprogress.InProgressViewModel
 import com.kspay.forwarder.ui.result.ResultScreen
@@ -57,6 +58,12 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
             )
             ResultScreen(outTradeNo = outTradeNo, viewModel = viewModel)
         }
-        composable(ForwarderDestination.History.route) { HistoryScreen() }
+        composable(ForwarderDestination.History.route) {
+            val repository = rememberTransactionRepository()
+            val viewModel: HistoryViewModel = viewModel(
+                factory = viewModelFactory { initializer { HistoryViewModel(repository) } },
+            )
+            HistoryScreen(viewModel = viewModel)
+        }
     }
 }

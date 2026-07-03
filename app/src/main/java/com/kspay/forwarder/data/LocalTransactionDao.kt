@@ -22,4 +22,7 @@ interface LocalTransactionDao {
 
     @Query("SELECT * FROM transactions WHERE outTradeNo = :outTradeNo")
     fun observeByOutTradeNo(outTradeNo: String): Flow<LocalTransaction?>
+
+    @Query("SELECT * FROM transactions ORDER BY createdAt DESC, id DESC")
+    fun observeAll(): Flow<List<LocalTransaction>>
 }

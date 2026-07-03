@@ -1,5 +1,6 @@
 package com.kspay.forwarder.ui.inprogress
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,10 @@ fun InProgressScreen(
     LaunchedEffect(uiState) {
         (uiState as? InProgressUiState.Finished)?.let { onFinished(it.transaction) }
     }
+
+    // A sale may already be charged on the terminal by the time it's mid-poll — backing out here
+    // would abandon it locally while the money has moved. Released once state is Finished.
+    BackHandler(enabled = uiState !is InProgressUiState.Finished) {}
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
