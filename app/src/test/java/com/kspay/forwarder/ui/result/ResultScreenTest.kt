@@ -56,8 +56,9 @@ class ResultScreenTest {
             rawSaleResultJson = adapter.toJson(QueryResponse(outTradeNO = draft.outTradeNo, payResult = 2, refNo = "REF123")),
         )
         repository.updateState(withResult, TransactionState.SUCCEEDED)
+        val viewModel = ResultViewModel(repository)
 
-        composeRule.setContent { ResultScreen(draft.outTradeNo, ResultViewModel(repository)) }
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel) }
 
         composeRule.onNodeWithText("$123.45", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("Ref: REF123", useUnmergedTree = true).assertExists()
@@ -72,8 +73,9 @@ class ResultScreenTest {
             ),
         )
         repository.updateState(withResult, TransactionState.NON_SUCCESS)
+        val viewModel = ResultViewModel(repository)
 
-        composeRule.setContent { ResultScreen(draft.outTradeNo, ResultViewModel(repository)) }
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel) }
 
         composeRule.onNodeWithText("Payment Not Successful", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("Card declined", useUnmergedTree = true).assertExists()
@@ -84,8 +86,9 @@ class ResultScreenTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.SUCCEEDED)
         var doneCalled = false
+        val viewModel = ResultViewModel(repository)
 
-        composeRule.setContent { ResultScreen(draft.outTradeNo, ResultViewModel(repository), onDone = { doneCalled = true }) }
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel, onDone = { doneCalled = true }) }
         composeRule.onNodeWithText("Done").performClick()
 
         assert(doneCalled)

@@ -46,7 +46,9 @@ class HistoryScreenTest {
 
     @Test
     fun `no transactions renders the empty message`() = runTest {
-        composeRule.setContent { HistoryScreen(HistoryViewModel(repository)) }
+        val viewModel = HistoryViewModel(repository)
+
+        composeRule.setContent { HistoryScreen(viewModel) }
 
         composeRule.onNodeWithText("No transactions yet").assertExists()
     }
@@ -55,8 +57,9 @@ class HistoryScreenTest {
     fun `a transaction renders its amount, state, and outTradeNo`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000012345", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.SUCCEEDED)
+        val viewModel = HistoryViewModel(repository)
 
-        composeRule.setContent { HistoryScreen(HistoryViewModel(repository)) }
+        composeRule.setContent { HistoryScreen(viewModel) }
 
         composeRule.onNodeWithText("$123.45  ·  SUCCEEDED", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(draft.outTradeNo, useUnmergedTree = true).assertExists()

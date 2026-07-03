@@ -50,8 +50,9 @@ class InProgressScreenTest {
     fun `SALE_SENT renders the sending message`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.SALE_SENT)
+        val viewModel = InProgressViewModel(repository)
 
-        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, viewModel) }
 
         composeRule.onNodeWithText("Sending sale...").assertExists()
     }
@@ -60,8 +61,9 @@ class InProgressScreenTest {
     fun `POLLING renders the processing message`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.POLLING)
+        val viewModel = InProgressViewModel(repository)
 
-        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, viewModel) }
 
         composeRule.onNodeWithText("Processing payment...").assertExists()
     }
@@ -70,10 +72,11 @@ class InProgressScreenTest {
     fun `a terminal state invokes onFinished with the transaction`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.SUCCEEDED)
+        val viewModel = InProgressViewModel(repository)
         var finished: LocalTransaction? = null
 
         composeRule.setContent {
-            InProgressScreen(draft.outTradeNo, InProgressViewModel(repository), onFinished = { finished = it })
+            InProgressScreen(draft.outTradeNo, viewModel, onFinished = { finished = it })
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) { finished != null }
@@ -84,8 +87,9 @@ class InProgressScreenTest {
     fun `back press is blocked while a sale is in flight`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.POLLING)
+        val viewModel = InProgressViewModel(repository)
 
-        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, viewModel) }
 
         assert(composeRule.activity.onBackPressedDispatcher.hasEnabledCallbacks())
     }
@@ -94,8 +98,9 @@ class InProgressScreenTest {
     fun `back press is allowed once the transaction reaches a terminal state`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.SUCCEEDED)
+        val viewModel = InProgressViewModel(repository)
 
-        composeRule.setContent { InProgressScreen(draft.outTradeNo, InProgressViewModel(repository)) }
+        composeRule.setContent { InProgressScreen(draft.outTradeNo, viewModel) }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             !composeRule.activity.onBackPressedDispatcher.hasEnabledCallbacks()
