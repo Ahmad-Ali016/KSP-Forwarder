@@ -51,3 +51,6 @@ keystore.properties
 
 # Local progress tracker — personal checklist, not shared repo content
 BUILD_PROGRESS.md
+
+# Local Claude Code guidance — not shared repo content
+CLAUDE.md
