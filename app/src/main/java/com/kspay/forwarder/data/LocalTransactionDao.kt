@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface LocalTransactionDao {
@@ -18,4 +19,7 @@ interface LocalTransactionDao {
 
     @Query("SELECT * FROM transactions WHERE state = :state")
     suspend fun findByState(state: TransactionState): List<LocalTransaction>
+
+    @Query("SELECT * FROM transactions WHERE outTradeNo = :outTradeNo")
+    fun observeByOutTradeNo(outTradeNo: String): Flow<LocalTransaction?>
 }

@@ -1,5 +1,7 @@
 package com.kspay.forwarder.data
 
+import kotlinx.coroutines.flow.Flow
+
 /**
  * Owns timestamps and outTradeNo assignment so LocalTransaction stays a plain data holder.
  * Each state change is persisted here before the caller makes its next network call.
@@ -8,6 +10,9 @@ class TransactionRepository(
     private val dao: LocalTransactionDao,
     private val outTradeNoGenerator: OutTradeNoGenerator,
 ) {
+    /** Live updates as the sale/poll flow writes state transitions (SALE_SENT -> POLLING -> ...). */
+    fun observe(outTradeNo: String): Flow<LocalTransaction?> = dao.observeByOutTradeNo(outTradeNo)
+
     suspend fun createDraft(payAmountCents: String, currency: String, paymentType: Int): LocalTransaction {
         val now = System.currentTimeMillis()
         val transaction = LocalTransaction(
