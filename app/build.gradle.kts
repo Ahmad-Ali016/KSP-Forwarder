@@ -36,6 +36,11 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -99,6 +104,14 @@ tasks.withType<Test> {
     // Lets tests locate the repo-root .env (KPay parity vector, gitignored) regardless of
     // Gradle's working directory for the test task.
     systemProperty("rootDir", rootProject.projectDir.absolutePath)
+
+    // Robolectric's native-runtime loader mis-handles the %20-encoded space in this machine's
+    // Windows user profile path ("AL GHANI COMPUTER"), throwing NoSuchFileException the first
+    // time a Compose/native-graphics Robolectric test loads per JVM fork
+    // (robolectric/robolectric#4589-class bug). Point it at a pre-populated, space-free offline
+    // dir instead of its default ~/.m2/repository cache. Machine-local workaround only.
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", "C:/robolectric-deps")
 }
 
 ksp {

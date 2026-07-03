@@ -1,15 +1,61 @@
 package com.kspay.forwarder.ui.fareentry
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import java.math.BigDecimal
+
+private val KEYPAD_KEYS = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫')
 
 @Composable
-fun FareEntryScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Fare Entry — placeholder (built in Phase 6)")
+fun FareEntryScreen(onCharge: (BigDecimal) -> Unit = {}, viewModel: FareEntryViewModel = viewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(
+            text = uiState.displayText,
+            style = MaterialTheme.typography.displayMedium,
+            modifier = Modifier.padding(vertical = 32.dp),
+        )
+
+        LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.height(280.dp)) {
+            items(KEYPAD_KEYS) { key ->
+                OutlinedButton(
+                    onClick = {
+                        when (key) {
+                            'C' -> viewModel.onClear()
+                            '⌫' -> viewModel.onBackspace()
+                            else -> viewModel.onDigit(key)
+                        }
+                    },
+                    modifier = Modifier.padding(4.dp).fillMaxWidth(),
+                ) {
+                    Text(key.toString(), style = MaterialTheme.typography.headlineSmall)
+                }
+            }
+        }
+
+        Button(
+            onClick = { onCharge(uiState.amount) },
+            enabled = uiState.isValid,
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        ) {
+            Text("Charge")
+        }
     }
 }
