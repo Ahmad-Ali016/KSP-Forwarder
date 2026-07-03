@@ -52,8 +52,16 @@ class ForwardWorkerTest {
     }
 
     private fun buildWorker(outTradeNo: String): ForwardWorker {
-        val api = KspayClientFactory.create(baseUrl = server.url("/").toString())
-        val factory = ForwarderWorkerFactory(repository, api, appId = "202xxx", forwarderVersion = "1.0", deviceToken = "token")
+        val kspayApi = KspayClientFactory.create(baseUrl = server.url("/").toString())
+        val kposApi = com.kspay.forwarder.kpay.KposClientFactory.create(baseUrl = server.url("/").toString())
+        val factory = ForwarderWorkerFactory(
+            repository,
+            kspayApi,
+            kposApi,
+            appId = "202xxx",
+            forwarderVersion = "1.0",
+            deviceToken = "token",
+        )
         return TestListenableWorkerBuilder<ForwardWorker>(RuntimeEnvironment.getApplication())
             .setInputData(workDataOf(ForwardWorker.KEY_OUT_TRADE_NO to outTradeNo))
             .setWorkerFactory(factory)
