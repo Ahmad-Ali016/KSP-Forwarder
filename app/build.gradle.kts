@@ -68,6 +68,9 @@ dependencies {
     // Encrypted local storage (working key + device token)
     implementation(libs.androidx.security.crypto)
 
+    // Feature config (safe defaults + persisted overrides from the KSPay backend)
+    implementation(libs.androidx.datastore.preferences)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
