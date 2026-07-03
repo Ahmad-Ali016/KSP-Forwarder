@@ -15,6 +15,10 @@ interface KposApi {
      */
     @POST("/v2/pos/sign")
     suspend fun signIn(@Body request: SignInRequest): KposEnvelope<SignInResponse>
+
+    /** Must be called on a client with SignedRequestInterceptor attached. */
+    @POST("/v2/pos/sales")
+    suspend fun sale(@Body request: SaleRequest): KposEnvelope<Map<String, Any?>?>
 }
 
 /**
