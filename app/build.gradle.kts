@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+// KPay's staging appId/appSecret are per-device credentials with nowhere to live in source
+// control. Read from local.properties (already gitignored, Android-Studio-managed) as
+// "kpay.appId"/"kpay.appSecret"; both default to empty strings when absent, e.g. on a fresh
+// clone before the physical terminal (Phase 8a) is provisioned.
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -20,6 +30,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "KPAY_APP_ID", "\"${localProperties.getProperty("kpay.appId", "")}\"")
+        buildConfigField("String", "KPAY_APP_SECRET", "\"${localProperties.getProperty("kpay.appSecret", "")}\"")
     }
 
     buildTypes {
@@ -35,6 +48,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests {

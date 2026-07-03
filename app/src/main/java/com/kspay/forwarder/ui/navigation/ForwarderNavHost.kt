@@ -1,6 +1,7 @@
 package com.kspay.forwarder.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -12,7 +13,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kspay.forwarder.ForwarderApplication
+import com.kspay.forwarder.crypto.Money
 import com.kspay.forwarder.data.TransactionRepository
+import com.kspay.forwarder.di.AppContainer
 import com.kspay.forwarder.ui.fareentry.FareEntryScreen
 import com.kspay.forwarder.ui.history.HistoryScreen
 import com.kspay.forwarder.ui.history.HistoryViewModel
@@ -20,10 +23,15 @@ import com.kspay.forwarder.ui.inprogress.InProgressScreen
 import com.kspay.forwarder.ui.inprogress.InProgressViewModel
 import com.kspay.forwarder.ui.result.ResultScreen
 import com.kspay.forwarder.ui.result.ResultViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 private fun rememberTransactionRepository(): TransactionRepository =
     (LocalContext.current.applicationContext as ForwarderApplication).container.transactionRepository
+
+@Composable
+private fun rememberAppContainer(): AppContainer =
+    (LocalContext.current.applicationContext as ForwarderApplication).container
 
 private const val OUT_TRADE_NO_ARG = "outTradeNo"
 
@@ -35,7 +43,21 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
         startDestination = ForwarderDestination.FareEntry.route,
         modifier = modifier,
     ) {
-        composable(ForwarderDestination.FareEntry.route) { FareEntryScreen() }
+        composable(ForwarderDestination.FareEntry.route) {
+            // Captures the container, not saleController itself — saleController is only
+            // resolved (and its AndroidKeyStore-backed WorkingKeyStore built) once Charge is
+            // actually tapped, not merely on composing this screen.
+            val container = rememberAppContainer()
+            val scope = rememberCoroutineScope()
+            FareEntryScreen(
+                onCharge = { amount ->
+                    scope.launch {
+                        val outTradeNo = container.saleController.charge(Money.toKpayCents(amount))
+                        navController.navigate(ForwarderDestination.InProgress.routeFor(outTradeNo))
+                    }
+                },
+            )
+        }
         composable(
             route = ForwarderDestination.InProgress.route,
             arguments = listOf(navArgument(OUT_TRADE_NO_ARG) { type = NavType.StringType }),
@@ -45,7 +67,15 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
             val viewModel: InProgressViewModel = viewModel(
                 factory = viewModelFactory { initializer { InProgressViewModel(repository) } },
             )
-            InProgressScreen(outTradeNo = outTradeNo, viewModel = viewModel)
+            InProgressScreen(
+                outTradeNo = outTradeNo,
+                viewModel = viewModel,
+                onFinished = { transaction ->
+                    navController.navigate(ForwarderDestination.Result.routeFor(transaction.outTradeNo)) {
+                        popUpTo(ForwarderDestination.InProgress.route) { inclusive = true }
+                    }
+                },
+            )
         }
         composable(
             route = ForwarderDestination.Result.route,
@@ -56,7 +86,15 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
             val viewModel: ResultViewModel = viewModel(
                 factory = viewModelFactory { initializer { ResultViewModel(repository) } },
             )
-            ResultScreen(outTradeNo = outTradeNo, viewModel = viewModel)
+            ResultScreen(
+                outTradeNo = outTradeNo,
+                viewModel = viewModel,
+                onDone = {
+                    navController.navigate(ForwarderDestination.FareEntry.route) {
+                        popUpTo(ForwarderDestination.FareEntry.route) { inclusive = true }
+                    }
+                },
+            )
         }
         composable(ForwarderDestination.History.route) {
             val repository = rememberTransactionRepository()
