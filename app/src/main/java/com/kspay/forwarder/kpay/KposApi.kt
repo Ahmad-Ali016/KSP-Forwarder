@@ -22,9 +22,17 @@ interface KposApi {
     @POST("/v2/pos/sales")
     suspend fun sale(@Body request: SaleRequest): KposEnvelope<Map<String, Any?>?>
 
-    /** Must be called on a client with SignedRequestInterceptor attached. */
+    /**
+     * Must be called on a client with SignedRequestInterceptor attached. includeReceipt
+     * defaults to true — deviceID/commitTime (the backend's driver-attribution fields) are
+     * only returned by KPOS when this flag is set, per KPay's docs. Do not default this to
+     * false; see QueryResponse's KDoc.
+     */
     @GET("/v2/pos/query")
-    suspend fun query(@Query("outTradeNo") outTradeNo: String): KposEnvelope<QueryResponse>
+    suspend fun query(
+        @Query("outTradeNo") outTradeNo: String,
+        @Query("includeReceipt") includeReceipt: Boolean = true,
+    ): KposEnvelope<QueryResponse>
 }
 
 /**

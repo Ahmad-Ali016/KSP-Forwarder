@@ -57,6 +57,17 @@ class PollUseCaseTest {
     }
 
     @Test
+    fun `every query request sets includeReceipt=true so deviceID and commitTime come back`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        server.enqueue(MockResponse().setBody(queryBody(payResult = 2)))
+
+        PollUseCase(api, repository).execute(draft)
+
+        val recorded = server.takeRequest()
+        assertEquals("true", recorded.requestUrl?.queryParameter("includeReceipt"))
+    }
+
+    @Test
     fun `immediate non-success takes exactly one attempt`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         server.enqueue(MockResponse().setBody(queryBody(payResult = 3)))
