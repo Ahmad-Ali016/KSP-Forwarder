@@ -56,6 +56,12 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
                         navController.navigate(ForwarderDestination.InProgress.routeFor(outTradeNo))
                     }
                 },
+                onSimulate = { amount ->
+                    scope.launch {
+                        val outTradeNo = container.saleController.simulateSuccess(Money.toKpayCents(amount))
+                        navController.navigate(ForwarderDestination.Result.routeFor(outTradeNo))
+                    }
+                },
             )
         }
         composable(

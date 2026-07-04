@@ -2,11 +2,9 @@ package com.kspay.forwarder.sync
 
 import android.content.Context
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
+import com.kspay.forwarder.data.LocalTransaction
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
 import com.kspay.forwarder.kpay.KposApi
@@ -32,23 +30,22 @@ class ReconciliationWorker(
     }
 
     private suspend fun reconcileStuckPolling() {
+        val workManager = WorkManager.getInstance(applicationContext)
         for (transaction in repository.findByState(TransactionState.POLLING)) {
             val data = try {
                 api.query(transaction.outTradeNo).data
             } catch (e: IOException) {
                 null // try again next reconciliation pass
             } ?: continue
-            QueryResultFinalizer.apply(repository, transaction, data)
+            val finalized: LocalTransaction? = QueryResultFinalizer.apply(repository, transaction, data)
+            if (finalized?.state == TransactionState.SUCCEEDED) workManager.enqueueForward(finalized.outTradeNo)
         }
     }
 
     private suspend fun reconcileUnforwardedSucceeded() {
         val workManager = WorkManager.getInstance(applicationContext)
         for (transaction in repository.findByState(TransactionState.SUCCEEDED)) {
-            val request = OneTimeWorkRequestBuilder<ForwardWorker>()
-                .setInputData(workDataOf(ForwardWorker.KEY_OUT_TRADE_NO to transaction.outTradeNo))
-                .build()
-            workManager.enqueueUniqueWork("forward-${transaction.outTradeNo}", ExistingWorkPolicy.KEEP, request)
+            workManager.enqueueForward(transaction.outTradeNo)
         }
     }
 }

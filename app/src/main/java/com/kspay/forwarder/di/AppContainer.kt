@@ -3,6 +3,8 @@ package com.kspay.forwarder.di
 import android.content.Context
 import android.provider.Settings
 import androidx.room.Room
+import androidx.work.WorkManager
+import androidx.work.WorkerFactory
 import com.kspay.forwarder.BuildConfig
 import com.kspay.forwarder.data.ForwarderDatabase
 import com.kspay.forwarder.data.OutTradeNoGenerator
@@ -12,6 +14,9 @@ import com.kspay.forwarder.kpay.KposClientFactory
 import com.kspay.forwarder.kpay.SaleController
 import com.kspay.forwarder.kpay.SignedRequestInterceptor
 import com.kspay.forwarder.kpay.signInWithFixedKeys
+import com.kspay.forwarder.net.KspayClientFactory
+import com.kspay.forwarder.sync.ForwarderWorkerFactory
+import com.kspay.forwarder.sync.enqueueForward
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +29,7 @@ import okhttp3.OkHttpClient
 interface AppContainer {
     val transactionRepository: TransactionRepository
     val saleController: SaleController
+    val workerFactory: WorkerFactory
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -60,6 +66,21 @@ class DefaultAppContainer(context: Context) : AppContainer {
     // survive navigating away from InProgress or the app backgrounding.
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // KSPay backend client -- see build.gradle.kts for how KSPAY_INGEST_URL/KSPAY_DEVICE_TOKEN
+    // are sourced (local.properties, same pattern as the KPay credentials above).
+    private val kspayApi by lazy { KspayClientFactory.create(baseUrl = BuildConfig.KSPAY_INGEST_URL) }
+
+    override val workerFactory: WorkerFactory by lazy {
+        ForwarderWorkerFactory(
+            repository = transactionRepository,
+            kspayApi = kspayApi,
+            kposApi = signedKposApi,
+            appId = BuildConfig.KPAY_APP_ID,
+            forwarderVersion = BuildConfig.VERSION_NAME,
+            deviceToken = BuildConfig.KSPAY_DEVICE_TOKEN,
+        )
+    }
+
     override val saleController by lazy {
         SaleController(
             repository = transactionRepository,
@@ -69,6 +90,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             appId = BuildConfig.KPAY_APP_ID,
             appSecret = BuildConfig.KPAY_APP_SECRET,
             scope = applicationScope,
+            onSucceeded = { outTradeNo -> WorkManager.getInstance(context).enqueueForward(outTradeNo) },
         )
     }
 }

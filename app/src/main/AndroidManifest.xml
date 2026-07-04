@@ -12,6 +12,25 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.KSPForwarder">
+
+        <!--
+          WorkManager auto-initializes via this androidx-startup provider by default. We supply
+          our own Configuration (custom WorkerFactory so ForwardWorker/ReconciliationWorker get
+          their real dependencies) via ForwarderApplication implementing Configuration.Provider,
+          which requires removing the default initializer here or WorkManager throws at startup
+          complaining both configuration paths are present.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

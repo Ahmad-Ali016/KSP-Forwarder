@@ -18,12 +18,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kspay.forwarder.BuildConfig
 import java.math.BigDecimal
 
 private val KEYPAD_KEYS = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫')
 
 @Composable
-fun FareEntryScreen(onCharge: (BigDecimal) -> Unit = {}, viewModel: FareEntryViewModel = viewModel()) {
+fun FareEntryScreen(
+    onCharge: (BigDecimal) -> Unit = {},
+    onSimulate: (BigDecimal) -> Unit = {},
+    viewModel: FareEntryViewModel = viewModel(),
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -56,6 +61,19 @@ fun FareEntryScreen(onCharge: (BigDecimal) -> Unit = {}, viewModel: FareEntryVie
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
             Text("Charge")
+        }
+
+        // Debug-build-only: bypasses KPOS entirely and fabricates a realistic SUCCEEDED
+        // transaction, so ForwardWorker's forward-to-KSPay path can be tested before a
+        // physical terminal exists. Stripped from release builds by BuildConfig.DEBUG.
+        if (BuildConfig.DEBUG) {
+            OutlinedButton(
+                onClick = { onSimulate(uiState.amount) },
+                enabled = uiState.isValid,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                Text("Simulate (debug)")
+            }
         }
     }
 }

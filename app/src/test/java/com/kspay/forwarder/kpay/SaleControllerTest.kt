@@ -70,8 +70,17 @@ class SaleControllerTest {
             .build(),
     )
 
-    private fun controller(store: WorkingKeyStore) =
-        SaleController(repository, unsignedApi, signedApi(store), store, "test-app-id", "test-app-secret", backgroundScope)
+    private fun controller(store: WorkingKeyStore, onSucceeded: suspend (String) -> Unit = {}) =
+        SaleController(
+            repository,
+            unsignedApi,
+            signedApi(store),
+            store,
+            "test-app-id",
+            "test-app-secret",
+            backgroundScope,
+            onSucceeded,
+        )
 
     private val nonTerminalStates =
         setOf(TransactionState.DRAFT, TransactionState.SALE_SENT, TransactionState.POLLING)
@@ -160,5 +169,45 @@ class SaleControllerTest {
 
         val justAfterCharge = repository.findByOutTradeNo(outTradeNo)
         assertEquals(TransactionState.DRAFT, justAfterCharge?.state)
+    }
+
+    @Test
+    fun `onSucceeded fires once with the outTradeNo when a real sale reaches SUCCEEDED`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        server.enqueue(MockResponse().setBody(saleBody()))
+        server.enqueue(MockResponse().setBody(querySucceededBody()))
+        val notified = mutableListOf<String>()
+
+        val outTradeNo = controller(store, onSucceeded = { notified.add(it) }).charge(payAmountCents = "000000000100")
+        awaitTerminal(outTradeNo)
+
+        assertEquals(listOf(outTradeNo), notified)
+    }
+
+    @Test
+    fun `onSucceeded is not called when the sale ends NON_SUCCESS`() = runTest {
+        val store = FakeWorkingKeyStore()
+        server.enqueue(MockResponse().setBody("""{"code":40001,"data":null,"message":"bad credentials"}"""))
+        val notified = mutableListOf<String>()
+
+        val outTradeNo = controller(store, onSucceeded = { notified.add(it) }).charge(payAmountCents = "000000000100")
+        awaitTerminal(outTradeNo)
+
+        assertEquals(emptyList<String>(), notified)
+    }
+
+    @Test
+    fun `simulateSuccess fabricates a SUCCEEDED transaction without any KPOS network calls`() = runTest {
+        val store = FakeWorkingKeyStore()
+        val notified = mutableListOf<String>()
+
+        val outTradeNo = controller(store, onSucceeded = { notified.add(it) }).simulateSuccess(payAmountCents = "000000000100")
+
+        val persisted = repository.findByOutTradeNo(outTradeNo)
+        assertEquals(TransactionState.SUCCEEDED, persisted?.state)
+        assertNotNull(persisted?.rawSaleResultJson)
+        assertEquals(listOf(outTradeNo), notified)
+        assertEquals(0, server.requestCount)
+        assertNull(store.get())
     }
 }

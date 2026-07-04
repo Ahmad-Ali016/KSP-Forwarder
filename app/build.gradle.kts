@@ -33,6 +33,14 @@ android {
 
         buildConfigField("String", "KPAY_APP_ID", "\"${localProperties.getProperty("kpay.appId", "")}\"")
         buildConfigField("String", "KPAY_APP_SECRET", "\"${localProperties.getProperty("kpay.appSecret", "")}\"")
+
+        // KSPay backend target for simulated end-to-end forwarding tests (pre-terminal). The
+        // ingest URL defaults to a syntactically-valid placeholder (not "") so Retrofit's
+        // Builder.baseUrl() doesn't throw at construction on a fresh clone -- an unconfigured
+        // device just gets connection-refused (IOException -> WorkManager retry) instead of a
+        // crash. Override both via local.properties once a real/local KSPay backend is reachable.
+        buildConfigField("String", "KSPAY_INGEST_URL", "\"${localProperties.getProperty("kspay.ingestUrl", "http://127.0.0.1:8000/")}\"")
+        buildConfigField("String", "KSPAY_DEVICE_TOKEN", "\"${localProperties.getProperty("kspay.deviceToken", "")}\"")
     }
 
     buildTypes {
