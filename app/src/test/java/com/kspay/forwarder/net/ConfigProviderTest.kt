@@ -42,22 +42,36 @@ class ConfigProviderTest {
     fun `refresh fetches and persists config, current reflects it afterward`() = runTest {
         server.enqueue(
             MockResponse().setBody(
-                """{"enableRefund":true,"enableVoid":true,"pollIntervalSeconds":10,"backendIngestUrl":"https://api.kspay.example/ingest"}""",
+                """{"enable_sale":true,"enable_abort":true,"enable_void":true,"enable_refund":true,
+                   |"poll_interval_seconds":10,"poll_timeout_seconds":120,
+                   |"reconciliation_interval_minutes":20,
+                   |"ingest_path":"/api/v1/ingest/kpay/transactions/"}""".trimMargin(),
             ),
         )
 
         val fetched = provider.refresh(deviceToken = "device-token")
 
-        assertEquals(true, fetched.enableRefund)
+        assertEquals(true, fetched.enableSale)
+        assertEquals(true, fetched.enableAbort)
         assertEquals(true, fetched.enableVoid)
+        assertEquals(true, fetched.enableRefund)
         assertEquals(10, fetched.pollIntervalSeconds)
-        assertEquals("https://api.kspay.example/ingest", fetched.backendIngestUrl)
+        assertEquals(120, fetched.pollTimeoutSeconds)
+        assertEquals(20, fetched.reconciliationIntervalMinutes)
+        assertEquals("/api/v1/ingest/kpay/transactions/", fetched.ingestPath)
         assertEquals(fetched, provider.current())
     }
 
     @Test
     fun `refresh on a network failure falls back to the cached config instead of crashing`() = runTest {
-        server.enqueue(MockResponse().setBody("""{"enableRefund":true,"enableVoid":false,"pollIntervalSeconds":7}"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """{"enable_sale":true,"enable_abort":true,"enable_void":false,"enable_refund":true,
+                   |"poll_interval_seconds":7,"poll_timeout_seconds":90,
+                   |"reconciliation_interval_minutes":15,
+                   |"ingest_path":"/api/v1/ingest/kpay/transactions/"}""".trimMargin(),
+            ),
+        )
         val firstFetch = provider.refresh(deviceToken = "device-token")
         server.shutdown() // simulate the backend becoming unreachable
 

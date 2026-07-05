@@ -33,26 +33,39 @@ class ConfigProvider(private val context: Context, private val api: ConfigApi) {
     suspend fun current(): FeatureConfig {
         val prefs = context.featureConfigDataStore.data.first()
         return FeatureConfig(
-            enableRefund = prefs[KEY_ENABLE_REFUND] ?: FeatureConfig.SAFE_DEFAULTS.enableRefund,
+            enableSale = prefs[KEY_ENABLE_SALE] ?: FeatureConfig.SAFE_DEFAULTS.enableSale,
+            enableAbort = prefs[KEY_ENABLE_ABORT] ?: FeatureConfig.SAFE_DEFAULTS.enableAbort,
             enableVoid = prefs[KEY_ENABLE_VOID] ?: FeatureConfig.SAFE_DEFAULTS.enableVoid,
+            enableRefund = prefs[KEY_ENABLE_REFUND] ?: FeatureConfig.SAFE_DEFAULTS.enableRefund,
             pollIntervalSeconds = prefs[KEY_POLL_INTERVAL] ?: FeatureConfig.SAFE_DEFAULTS.pollIntervalSeconds,
-            backendIngestUrl = prefs[KEY_BACKEND_URL] ?: FeatureConfig.SAFE_DEFAULTS.backendIngestUrl,
+            pollTimeoutSeconds = prefs[KEY_POLL_TIMEOUT] ?: FeatureConfig.SAFE_DEFAULTS.pollTimeoutSeconds,
+            reconciliationIntervalMinutes = prefs[KEY_RECONCILIATION_INTERVAL]
+                ?: FeatureConfig.SAFE_DEFAULTS.reconciliationIntervalMinutes,
+            ingestPath = prefs[KEY_INGEST_PATH] ?: FeatureConfig.SAFE_DEFAULTS.ingestPath,
         )
     }
 
     private suspend fun persist(config: FeatureConfig) {
         context.featureConfigDataStore.edit { prefs ->
-            prefs[KEY_ENABLE_REFUND] = config.enableRefund
+            prefs[KEY_ENABLE_SALE] = config.enableSale
+            prefs[KEY_ENABLE_ABORT] = config.enableAbort
             prefs[KEY_ENABLE_VOID] = config.enableVoid
+            prefs[KEY_ENABLE_REFUND] = config.enableRefund
             prefs[KEY_POLL_INTERVAL] = config.pollIntervalSeconds
-            config.backendIngestUrl?.let { prefs[KEY_BACKEND_URL] = it }
+            prefs[KEY_POLL_TIMEOUT] = config.pollTimeoutSeconds
+            prefs[KEY_RECONCILIATION_INTERVAL] = config.reconciliationIntervalMinutes
+            config.ingestPath?.let { prefs[KEY_INGEST_PATH] = it }
         }
     }
 
     private companion object {
-        val KEY_ENABLE_REFUND = booleanPreferencesKey("enable_refund")
+        val KEY_ENABLE_SALE = booleanPreferencesKey("enable_sale")
+        val KEY_ENABLE_ABORT = booleanPreferencesKey("enable_abort")
         val KEY_ENABLE_VOID = booleanPreferencesKey("enable_void")
-        val KEY_POLL_INTERVAL = intPreferencesKey("poll_interval_s")
-        val KEY_BACKEND_URL = stringPreferencesKey("backend_ingest_url")
+        val KEY_ENABLE_REFUND = booleanPreferencesKey("enable_refund")
+        val KEY_POLL_INTERVAL = intPreferencesKey("poll_interval_seconds")
+        val KEY_POLL_TIMEOUT = intPreferencesKey("poll_timeout_seconds")
+        val KEY_RECONCILIATION_INTERVAL = intPreferencesKey("reconciliation_interval_minutes")
+        val KEY_INGEST_PATH = stringPreferencesKey("ingest_path")
     }
 }

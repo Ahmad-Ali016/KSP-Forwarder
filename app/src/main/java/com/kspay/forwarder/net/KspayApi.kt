@@ -8,12 +8,10 @@ import retrofit2.http.POST
 /**
  * KSPay backend ingest client.
  *
- * ⚠ UNCONFIRMED CONVENTION — "Idempotency-Key" header name: the KSPay backend doesn't exist
- * in this repo and isn't documented anywhere available here. The plan only specifies
- * "idempotency key = outTradeNo", not a header name. This uses the Stripe-style
- * "Idempotency-Key" header as a placeholder convention since we control both sides right now.
- * TODO: confirm the real header name against the KSPay backend once B3 (ingestion endpoint)
- * exists, and update this + KspayApiTest together if it differs.
+ * "Idempotency-Key" header: confirmed with the KSPay backend team (2026-07-05) that their
+ * ingest endpoint reads no idempotency header at all — dedupe is purely on the body's
+ * outTradeNo. This header is a no-op on their side; kept anyway (costs nothing, and might
+ * matter if their dedupe strategy ever changes) rather than removed.
  */
 interface KspayApi {
     @POST("/api/v1/ingest/kpay/transactions/")
