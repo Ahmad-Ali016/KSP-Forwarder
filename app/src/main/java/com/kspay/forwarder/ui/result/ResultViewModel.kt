@@ -36,14 +36,17 @@ class ResultViewModel(private val repository: TransactionRepository) : ViewModel
         if (transaction == null || transaction.state !in TERMINAL_STATES) return ResultUiState.Loading
 
         val result = transaction.rawSaleResultJson?.let(adapter::fromJson)
-        return if (transaction.state in SUCCESS_STATES) {
-            ResultUiState.Success(Money.fromKpayCents(transaction.payAmountCents), result?.refNo)
-        } else {
-            ResultUiState.NonSuccess(result?.reason ?: "Payment was not successful")
+        return when {
+            transaction.state in SUCCESS_STATES ->
+                ResultUiState.Success(Money.fromKpayCents(transaction.payAmountCents), result?.refNo)
+            transaction.state == TransactionState.ANOMALY ->
+                ResultUiState.Anomaly(Money.fromKpayCents(transaction.payAmountCents))
+            else -> ResultUiState.NonSuccess(result?.reason ?: "Payment was not successful")
         }
     }
 
     private companion object {
-        val TERMINAL_STATES = SUCCESS_STATES + setOf(TransactionState.NON_SUCCESS, TransactionState.ABORTED)
+        val TERMINAL_STATES =
+            SUCCESS_STATES + setOf(TransactionState.NON_SUCCESS, TransactionState.ABORTED, TransactionState.ANOMALY)
     }
 }

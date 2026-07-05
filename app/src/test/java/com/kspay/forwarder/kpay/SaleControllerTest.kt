@@ -111,7 +111,8 @@ class SaleControllerTest {
     }
 
     private fun saleBody() = """{"code":10000,"data":{}}"""
-    private fun querySucceededBody() = """{"code":10000,"data":{"outTradeNO":"OT","payResult":2,"payAmount":"000000000100"}}"""
+    private fun querySucceededBody() =
+        """{"code":10000,"data":{"outTradeNO":"OT","payResult":2,"payAmount":"000000000100","orderAmount":"000000000100"}}"""
     private fun signInBody(privateKey: String) =
         """{"code":10000,"data":{"platformPublicKey":"pub","appPrivateKey":"$privateKey"}}"""
 

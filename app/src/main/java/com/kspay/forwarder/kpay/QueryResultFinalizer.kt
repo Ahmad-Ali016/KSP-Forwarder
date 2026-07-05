@@ -23,11 +23,27 @@ object QueryResultFinalizer {
         transaction: LocalTransaction,
         data: QueryResponse,
     ): LocalTransaction? {
-        val state = when (data.payResult) {
-            PENDING_RESULT -> return null
-            SUCCESS_RESULT -> TransactionState.SUCCEEDED
+        val state = when {
+            data.payResult == PENDING_RESULT -> return null
+            data.payResult == SUCCESS_RESULT && hasRequiredAmounts(data) -> TransactionState.SUCCEEDED
+            data.payResult == SUCCESS_RESULT -> TransactionState.ANOMALY
             else -> TransactionState.NON_SUCCESS
         }
-        return repository.updateState(transaction.copy(rawSaleResultJson = adapter.toJson(data)), state)
+        val updated = transaction.copy(rawSaleResultJson = adapter.toJson(data))
+        return repository.updateState(
+            if (state == TransactionState.ANOMALY) {
+                updated.copy(
+                    lastError = "KPay reported payResult=2 (success) but payAmount/orderAmount was " +
+                        "missing from the query result -- held for manual review, not forwarded",
+                )
+            } else {
+                updated
+            },
+            state,
+        )
     }
+
+    /** KSPay's ingest schema requires both present on every request -- see TransactionState.ANOMALY. */
+    private fun hasRequiredAmounts(data: QueryResponse): Boolean =
+        !data.payAmount.isNullOrBlank() && !data.orderAmount.isNullOrBlank()
 }

@@ -50,7 +50,8 @@ class MoneyPathScenarioTest {
     }
 
     private fun saleBody() = """{"code":10000,"data":{}}"""
-    private fun queryBody(payResult: Int) = """{"code":10000,"data":{"outTradeNO":"OT","payResult":$payResult,"payAmount":"000000000100"}}"""
+    private fun queryBody(payResult: Int) =
+        """{"code":10000,"data":{"outTradeNO":"OT","payResult":$payResult,"payAmount":"000000000100","orderAmount":"000000000100"}}"""
 
     private suspend fun runFullFlow(): LocalResult {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)

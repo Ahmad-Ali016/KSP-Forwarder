@@ -1,6 +1,8 @@
 package com.kspay.forwarder.ui.result
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.room.Room
@@ -79,6 +81,22 @@ class ResultScreenTest {
 
         composeRule.onNodeWithText("Payment Not Successful", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("Card declined", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `ANOMALY renders the amount with do-not-recharge guidance, not a failure message`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000012345", currency = "036", paymentType = 1)
+        val withResult = draft.copy(
+            rawSaleResultJson = adapter.toJson(QueryResponse(outTradeNO = draft.outTradeNo, payResult = 2)),
+        )
+        repository.updateState(withResult, TransactionState.ANOMALY)
+        val viewModel = ResultViewModel(repository)
+
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel) }
+
+        composeRule.onNodeWithText("$123.45", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Payment Captured — Needs Review", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithText("Payment Not Successful", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test

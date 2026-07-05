@@ -21,6 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.shadows.ShadowLog
 
 @RunWith(RobolectricTestRunner::class)
 class ForwardWorkerTest {
@@ -72,6 +73,34 @@ class ForwardWorkerTest {
     fun `a 2xx response marks the transaction FORWARDED`() = runTest {
         val transaction = succeededTransaction()
         server.enqueue(MockResponse().setResponseCode(200))
+
+        val result = buildWorker(transaction.outTradeNo).doWork()
+
+        assertTrue(result is ListenableWorker.Result.Success)
+        assertEquals(TransactionState.FORWARDED, repository.findByOutTradeNo(transaction.outTradeNo)?.state)
+    }
+
+    @Test
+    fun `a QUARANTINED status in the response body still marks FORWARDED, and is only logged`() = runTest {
+        val transaction = succeededTransaction()
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"success":true,"data":{"out_trade_no":"${transaction.outTradeNo}",
+                   |"transaction_id":"txn-1","status":"QUARANTINED"}}""".trimMargin(),
+            ),
+        )
+
+        val result = buildWorker(transaction.outTradeNo).doWork()
+
+        assertTrue(result is ListenableWorker.Result.Success)
+        assertEquals(TransactionState.FORWARDED, repository.findByOutTradeNo(transaction.outTradeNo)?.state)
+        assertTrue(ShadowLog.getLogsForTag("ForwardWorker").any { it.msg.contains("QUARANTINED") })
+    }
+
+    @Test
+    fun `a missing or empty response body never breaks the worker`() = runTest {
+        val transaction = succeededTransaction()
+        server.enqueue(MockResponse().setResponseCode(200)) // no body at all
 
         val result = buildWorker(transaction.outTradeNo).doWork()
 

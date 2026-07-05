@@ -42,7 +42,8 @@ class PollUseCaseTest {
         db.close()
     }
 
-    private fun queryBody(payResult: Int) = """{"code":10000,"data":{"outTradeNO":"OT1","payResult":$payResult}}"""
+    private fun queryBody(payResult: Int) =
+        """{"code":10000,"data":{"outTradeNO":"OT1","payResult":$payResult,"payAmount":"000000000100","orderAmount":"000000000100"}}"""
 
     @Test
     fun `immediate success takes exactly one attempt with no delay`() = runTest {
@@ -101,5 +102,30 @@ class PollUseCaseTest {
         assertEquals(TransactionState.POLLING, result.state)
         assertEquals(18, server.requestCount)
         assertEquals(17 * 5_000L, currentTime)
+    }
+
+    @Test
+    fun `a success result missing payAmount marks ANOMALY, not SUCCEEDED, with a descriptive lastError`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        server.enqueue(
+            MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"OT1","payResult":2,"orderAmount":"000000000100"}}"""),
+        )
+
+        val result = PollUseCase(api, repository).execute(draft)
+
+        assertEquals(TransactionState.ANOMALY, result.state)
+        assertEquals(true, result.lastError?.contains("payAmount/orderAmount"))
+    }
+
+    @Test
+    fun `a success result missing orderAmount marks ANOMALY, not SUCCEEDED`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        server.enqueue(
+            MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"OT1","payResult":2,"payAmount":"000000000100"}}"""),
+        )
+
+        val result = PollUseCase(api, repository).execute(draft)
+
+        assertEquals(TransactionState.ANOMALY, result.state)
     }
 }

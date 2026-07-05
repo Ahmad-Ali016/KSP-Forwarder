@@ -73,11 +73,31 @@ class ReconciliationWorkerTest {
     fun `a stuck POLLING transaction that now shows success moves to SUCCEEDED`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         val polling = repository.updateState(draft, TransactionState.POLLING)
-        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"${polling.outTradeNo}","payResult":2}}"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """{"code":10000,"data":{"outTradeNO":"${polling.outTradeNo}","payResult":2,
+                   |"payAmount":"000000000100","orderAmount":"000000000100"}}""".trimMargin(),
+            ),
+        )
 
         buildWorker().doWork()
 
         assertEquals(TransactionState.SUCCEEDED, repository.findByOutTradeNo(polling.outTradeNo)?.state)
+    }
+
+    @Test
+    fun `a stuck POLLING transaction that now shows success but is missing payAmount moves to ANOMALY, not SUCCEEDED`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        val polling = repository.updateState(draft, TransactionState.POLLING)
+        server.enqueue(
+            MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"${polling.outTradeNo}","payResult":2}}"""),
+        )
+
+        buildWorker().doWork()
+
+        assertEquals(TransactionState.ANOMALY, repository.findByOutTradeNo(polling.outTradeNo)?.state)
+        val workInfos = WorkManager.getInstance(context).getWorkInfosForUniqueWork("forward-${polling.outTradeNo}").get()
+        assertEquals(0, workInfos.size)
     }
 
     @Test

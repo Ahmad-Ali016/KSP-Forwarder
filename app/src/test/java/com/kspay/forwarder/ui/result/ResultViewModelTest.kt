@@ -110,6 +110,19 @@ class ResultViewModelTest {
     }
 
     @Test
+    fun `ANOMALY renders the amount without a failure message`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000012345", currency = "036", paymentType = 1)
+        val withResult = draft.copy(rawSaleResultJson = queryResponseJson(draft.outTradeNo, payResult = 2))
+        repository.updateState(withResult, TransactionState.ANOMALY)
+        val viewModel = ResultViewModel(repository)
+
+        viewModel.observe(draft.outTradeNo)
+
+        val anomaly = viewModel.uiState.first { it != ResultUiState.Loading } as ResultUiState.Anomaly
+        assertEquals(BigDecimal("123.45"), anomaly.amount)
+    }
+
+    @Test
     fun `NON_SUCCESS with no stored reason falls back to a generic message`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.NON_SUCCESS)

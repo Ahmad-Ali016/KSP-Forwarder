@@ -10,4 +10,9 @@ sealed class ResultUiState {
     }
 
     data class NonSuccess(val message: String) : ResultUiState()
+
+    /** payResult=2 (charge succeeded) but the receipt data was incomplete -- see TransactionState.ANOMALY. */
+    data class Anomaly(val amount: BigDecimal) : ResultUiState() {
+        val amountDisplay: String get() = "$" + amount.setScale(2).toPlainString()
+    }
 }

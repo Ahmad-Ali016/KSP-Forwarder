@@ -47,6 +47,15 @@ fun ResultScreen(
                 Text("Payment Not Successful", style = MaterialTheme.typography.headlineSmall)
                 Text(state.message, modifier = Modifier.padding(vertical = 16.dp))
             }
+            is ResultUiState.Anomaly -> {
+                Text("Payment Captured — Needs Review", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    state.amountDisplay,
+                    style = MaterialTheme.typography.displayMedium,
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
+                Text("Do not charge again. A supervisor needs to reconcile this payment manually.")
+            }
         }
 
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
