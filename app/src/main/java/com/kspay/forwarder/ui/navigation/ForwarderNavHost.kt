@@ -62,6 +62,7 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
                         navController.navigate(ForwarderDestination.Result.routeFor(outTradeNo))
                     }
                 },
+                onViewHistory = { navController.navigate(ForwarderDestination.History.route) },
             )
         }
         composable(
@@ -107,7 +108,7 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
             val viewModel: HistoryViewModel = viewModel(
                 factory = viewModelFactory { initializer { HistoryViewModel(repository) } },
             )
-            HistoryScreen(viewModel = viewModel)
+            HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
     }
 }

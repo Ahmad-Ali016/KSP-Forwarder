@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,11 +29,12 @@ private val KEYPAD_KEYS = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', 'C
 fun FareEntryScreen(
     onCharge: (BigDecimal) -> Unit = {},
     onSimulate: (BigDecimal) -> Unit = {},
+    onViewHistory: () -> Unit = {},
     viewModel: FareEntryViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(
             text = uiState.displayText,
             style = MaterialTheme.typography.displayMedium,
@@ -73,6 +76,13 @@ fun FareEntryScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text("Simulate (debug)")
+            }
+
+            OutlinedButton(
+                onClick = onViewHistory,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                Text("History (debug)")
             }
         }
     }

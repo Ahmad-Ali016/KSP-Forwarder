@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,27 +20,33 @@ import androidx.compose.ui.unit.dp
 import com.kspay.forwarder.crypto.Money
 
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel) {
+fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
     val transactions by viewModel.transactions.collectAsState()
 
-    if (transactions.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No transactions yet")
+    Column(modifier = Modifier.fillMaxSize()) {
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text("Back")
         }
-        return
-    }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        items(transactions, key = { it.outTradeNo }) { transaction ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Text(
-                    "$" + Money.fromKpayCents(transaction.payAmountCents).setScale(2).toPlainString() +
-                        "  ·  " + transaction.state,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(transaction.outTradeNo, style = MaterialTheme.typography.bodySmall)
+        if (transactions.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No transactions yet")
             }
-            HorizontalDivider()
+            return@Column
+        }
+
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            items(transactions, key = { it.outTradeNo }) { transaction ->
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text(
+                        "$" + Money.fromKpayCents(transaction.payAmountCents).setScale(2).toPlainString() +
+                            "  ·  " + transaction.state,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(transaction.outTradeNo, style = MaterialTheme.typography.bodySmall)
+                }
+                HorizontalDivider()
+            }
         }
     }
 }

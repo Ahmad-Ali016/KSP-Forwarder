@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import java.math.BigDecimal
 import org.junit.Rule
 import org.junit.Test
@@ -46,6 +47,16 @@ class FareEntryScreenTest {
         composeRule.onNodeWithText("Charge").performClick()
 
         assert(charged == BigDecimal("0.25")) { "expected 0.25, got $charged" }
+    }
+
+    @Test
+    fun `tapping History (debug) invokes the callback`() {
+        var historyOpened = false
+        composeRule.setContent { FareEntryScreen(onViewHistory = { historyOpened = true }) }
+
+        composeRule.onNodeWithText("History (debug)").performScrollTo().performClick()
+
+        assert(historyOpened)
     }
 
     @Test

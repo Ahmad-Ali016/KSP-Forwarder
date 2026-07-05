@@ -2,6 +2,7 @@ package com.kspay.forwarder.ui.history
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.room.Room
 import com.kspay.forwarder.data.ForwarderDatabase
 import com.kspay.forwarder.data.OutTradeNoGenerator
@@ -63,5 +64,16 @@ class HistoryScreenTest {
 
         composeRule.onNodeWithText("$123.45  ·  SUCCEEDED", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText(draft.outTradeNo, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `tapping Back invokes the callback`() = runTest {
+        val viewModel = HistoryViewModel(repository)
+        var backCalled = false
+
+        composeRule.setContent { HistoryScreen(viewModel, onBack = { backCalled = true }) }
+        composeRule.onNodeWithText("Back").performClick()
+
+        assert(backCalled)
     }
 }
