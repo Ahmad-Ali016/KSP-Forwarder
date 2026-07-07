@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.work.Configuration
 import com.kspay.forwarder.di.AppContainer
 import com.kspay.forwarder.di.DefaultAppContainer
+import com.kspay.forwarder.util.CrashLogger
 
 class ForwarderApplication : Application(), Configuration.Provider {
 
@@ -12,6 +13,7 @@ class ForwarderApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLogger.install(this)
         container = DefaultAppContainer(this)
     }
 

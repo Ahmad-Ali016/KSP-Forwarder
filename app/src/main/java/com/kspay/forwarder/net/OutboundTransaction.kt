@@ -1,5 +1,7 @@
 package com.kspay.forwarder.net
 
+import com.kspay.forwarder.crypto.maskCardNo
+
 /**
  * The exact outbound payload forwarded to KSPay's ingest endpoint — the contract of record
  * the backend is built to match. Every KPay field is forwarded verbatim (original names,
@@ -42,4 +44,9 @@ data class OutboundTransaction(
     val captureMethod: String = "poll",
     val capturedAt: Long,
     val localId: String,
-)
+) {
+    // PII-safe: if this object is ever logged/interpolated, cardNo must never appear unmasked.
+    override fun toString(): String =
+        "OutboundTransaction(outTradeNo=$outTradeNo, payResult=$payResult, transactionNo=$transactionNo, " +
+            "refNo=$refNo, deviceID=$deviceID, commitTime=$commitTime, cardNo=${maskCardNo(cardNo)})"
+}

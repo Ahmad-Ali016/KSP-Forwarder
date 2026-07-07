@@ -46,8 +46,12 @@ android {
     buildTypes {
         release {
             optimization {
-                enable = false
+                enable = true
             }
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Store submission (Phase 9) will use a real release keystore; for now this produces
+            // an installable, dev-signed release APK so R8 shrinking can actually be smoke-tested.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

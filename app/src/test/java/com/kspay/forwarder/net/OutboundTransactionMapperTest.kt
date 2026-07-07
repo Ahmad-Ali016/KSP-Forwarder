@@ -84,4 +84,19 @@ class OutboundTransactionMapperTest {
     fun `mapping a transaction with no stored result fails loudly`() {
         OutboundTransactionMapper.map(sampleTransaction().copy(rawSaleResultJson = null), appId = "x", forwarderVersion = "1.0")
     }
+
+    @Test
+    fun `toString never exposes the raw cardNo`() {
+        val raw = sampleRawResult.replace("\"cardNo\":\"1234\"", "\"cardNo\":\"4111111111111111\"")
+        val outbound = OutboundTransactionMapper.map(
+            sampleTransaction().copy(rawSaleResultJson = raw),
+            appId = "202xxxxxxxxxx",
+            forwarderVersion = "1.0",
+        )
+
+        val logged = outbound.toString()
+
+        assertEquals(false, logged.contains("4111111111111111"))
+        assertEquals(true, logged.contains("411111******1111"))
+    }
 }

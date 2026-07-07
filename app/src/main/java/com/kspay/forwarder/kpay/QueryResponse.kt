@@ -1,5 +1,7 @@
 package com.kspay.forwarder.kpay
 
+import com.kspay.forwarder.crypto.maskCardNo
+
 /**
  * GET /v2/pos/query response data. payResult: -1 timeout, 1 pending, 2 successful, 3 failed,
  * 4 returned, 5 canceled, 6 transaction canceled.
@@ -39,4 +41,9 @@ data class QueryResponse(
     val appVersion: String? = null,
     val terminalType: String? = null,
     val deviceID: String? = null,
-)
+) {
+    // PII-safe: if this object is ever logged/interpolated, cardNo must never appear unmasked.
+    override fun toString(): String =
+        "QueryResponse(outTradeNO=$outTradeNO, payResult=$payResult, transactionNo=$transactionNo, " +
+            "refNo=$refNo, deviceID=$deviceID, commitTime=$commitTime, cardNo=${maskCardNo(cardNo)})"
+}
