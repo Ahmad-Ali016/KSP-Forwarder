@@ -7,7 +7,10 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 private const val PAYMENT_TYPE_CARD = 1
 
@@ -34,9 +37,16 @@ class SaleController(
 ) {
     private val queryResponseAdapter = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build().adapter(QueryResponse::class.java)
 
+    // Tracks the background runSale() job per outTradeNo so abort() can stop it before writing
+    // ABORTED -- otherwise the still-running PollUseCase loop can win the race and overwrite
+    // abort's state with whatever KPOS's next query result happens to finalize as.
+    private val activeSales = ConcurrentHashMap<String, Job>()
+
     suspend fun charge(payAmountCents: String, currency: String = "036", paymentType: Int = PAYMENT_TYPE_CARD): String {
         val draft = repository.createDraft(payAmountCents, currency, paymentType)
-        scope.launch { runSale(draft) }
+        val job = scope.launch { runSale(draft) }
+        activeSales[draft.outTradeNo] = job
+        job.invokeOnCompletion { activeSales.remove(draft.outTradeNo) }
         return draft.outTradeNo
     }
 
@@ -60,22 +70,33 @@ class SaleController(
      * to abort before a sale has been sent. On success marks ABORTED; on rejection (e.g. KPay's
      * 2-in-1-background-mode caveat, or the sale completing in the meantime) records lastError and
      * leaves the transaction in its current state rather than falsely marking it ABORTED.
+     *
+     * Stops the in-flight runSale() job (which owns the concurrent PollUseCase loop) *before*
+     * touching the transaction -- otherwise that loop can keep polling after we've decided to
+     * abort and overwrite our result with whatever it next resolves to.
      */
     suspend fun abort(outTradeNo: String) {
         val transaction = repository.findByOutTradeNo(outTradeNo) ?: return
         if (transaction.state != TransactionState.POLLING) return
+        activeSales[outTradeNo]?.cancelAndJoin()
+
+        // Re-read: the poll loop may have already reached a terminal state in the moment before
+        // cancellation took effect -- if so, that result is real and must not be overwritten.
+        val current = repository.findByOutTradeNo(outTradeNo) ?: return
+        if (current.state != TransactionState.POLLING) return
+
         try {
             val response = signedApi.close(CloseRequest(outTradeNo))
             if (response.isSuccess) {
-                repository.updateState(transaction, TransactionState.ABORTED)
+                repository.updateState(current, TransactionState.ABORTED)
             } else {
                 val message = "Abort failed: code=${response.code} message=${response.message}"
-                repository.updateState(transaction.copy(lastError = message), transaction.state)
+                repository.updateState(current.copy(lastError = message), current.state)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            repository.updateState(transaction.copy(lastError = "Abort failed: ${e.message}"), transaction.state)
+            repository.updateState(current.copy(lastError = "Abort failed: ${e.message}"), current.state)
         }
     }
 
