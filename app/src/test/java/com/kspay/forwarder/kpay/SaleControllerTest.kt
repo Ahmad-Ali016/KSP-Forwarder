@@ -19,6 +19,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -239,6 +240,37 @@ class SaleControllerTest {
         val persisted = repository.findByOutTradeNo(draft.outTradeNo)
         assertEquals(TransactionState.POLLING, persisted?.state)
         assertNotNull(persisted?.lastError)
+    }
+
+    @Test
+    fun `abort cancels the concurrent poll loop so it cannot overwrite ABORTED afterward`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        server.enqueue(MockResponse().setBody(saleBody()))
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"OT","payResult":1}}"""))
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+        val ctrl = controller(store)
+
+        val outTradeNo = ctrl.charge(payAmountCents = "000000000100")
+        val deadline = System.currentTimeMillis() + 5_000
+        var polling: LocalTransaction? = null
+        while (System.currentTimeMillis() < deadline) {
+            polling = repository.findByOutTradeNo(outTradeNo)
+            if (polling?.state == TransactionState.POLLING) break
+            withContext(Dispatchers.IO) { Thread.sleep(20) }
+        }
+        assertEquals(TransactionState.POLLING, polling?.state)
+
+        ctrl.abort(outTradeNo)
+
+        // Without cancellation, PollUseCase's next attempt (after its real 5s interval) would
+        // fire and could overwrite ABORTED with whatever it resolves to -- wait past that window.
+        withContext(Dispatchers.IO) { Thread.sleep(6_000) }
+        val persisted = repository.findByOutTradeNo(outTradeNo)
+        assertEquals(TransactionState.ABORTED, persisted?.state)
+        // At most sale + first (pending) query + close -- abort() can win the race against the
+        // very first query too (POLLING is set before it fires), so the query isn't guaranteed;
+        // what matters is no *second* query request ever got through after cancellation.
+        assertTrue(server.requestCount <= 3)
     }
 
     @Test
