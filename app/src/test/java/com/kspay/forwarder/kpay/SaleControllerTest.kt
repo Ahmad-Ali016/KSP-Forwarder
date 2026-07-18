@@ -227,13 +227,32 @@ class SaleControllerTest {
     }
 
     @Test
-    fun `abort records lastError and leaves state unchanged when KPay rejects the close`() = runTest {
+    fun `abort recovers the real result via a follow-up query when KPay rejects the close as already-completed`() = runTest {
         val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
         repository.updateState(draft, TransactionState.POLLING)
         server.enqueue(
             MockResponse().setBody("""{"code":20010,"data":null,"message":"Transaction completed, cannot be closed"}"""),
         )
+        server.enqueue(MockResponse().setBody(querySucceededBody()))
+        val notified = mutableListOf<String>()
+
+        controller(store, onSucceeded = { notified.add(it) }).abort(draft.outTradeNo)
+
+        val persisted = repository.findByOutTradeNo(draft.outTradeNo)
+        assertEquals(TransactionState.SUCCEEDED, persisted?.state)
+        assertEquals(listOf(draft.outTradeNo), notified)
+    }
+
+    @Test
+    fun `abort records lastError and leaves state POLLING when the follow-up query is still pending`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.POLLING)
+        server.enqueue(
+            MockResponse().setBody("""{"code":20012,"data":null,"message":"Transaction in progress"}"""),
+        )
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{"outTradeNO":"OT","payResult":1}}"""))
 
         controller(store).abort(draft.outTradeNo)
 

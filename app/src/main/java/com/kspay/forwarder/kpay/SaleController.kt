@@ -69,13 +69,15 @@ class SaleController(
     /**
      * Debug-only: aborts a still-pending (POLLING) sale via KPay's close endpoint. No-ops for any
      * other state -- KPay itself rejects close on an already-completed sale, and there is nothing
-     * to abort before a sale has been sent. On success marks ABORTED; on rejection (e.g. KPay's
-     * 2-in-1-background-mode caveat, or the sale completing in the meantime) records lastError and
-     * leaves the transaction in its current state rather than falsely marking it ABORTED.
+     * to abort before a sale has been sent. On success marks ABORTED.
      *
      * Stops the in-flight runSale() job (which owns the concurrent PollUseCase loop) *before*
      * touching the transaction -- otherwise that loop can keep polling after we've decided to
-     * abort and overwrite our result with whatever it next resolves to.
+     * abort and overwrite our result with whatever it next resolves to. Since that also means
+     * nothing is polling anymore, a rejected close() (observed live: code 20010, "already
+     * completed" -- these test sales tend to resolve almost immediately) triggers one manual
+     * follow-up query() to fetch and record the real result via QueryResultFinalizer, rather than
+     * leaving the transaction stuck in POLLING with nothing left to resolve it.
      */
     suspend fun abort(outTradeNo: String) {
         val transaction = repository.findByOutTradeNo(outTradeNo) ?: return
@@ -95,6 +97,20 @@ class SaleController(
             Log.d(TAG, "abort($outTradeNo): close() responded code=${response.code} message=${response.message}")
             if (response.isSuccess) {
                 repository.updateState(current, TransactionState.ABORTED)
+                return
+            }
+
+            // KPay rejected the close -- most commonly because the sale already reached a final
+            // result (e.g. code 20010, "already completed") before our close() request arrived.
+            // We already stopped our own poll loop above, so nothing else will ever discover that
+            // real result -- query once ourselves instead of leaving the transaction stuck in
+            // POLLING forever.
+            Log.d(TAG, "abort($outTradeNo): close() rejected, querying for the real result")
+            val queried = signedApi.query(outTradeNo).data
+            val finalized = queried?.let { QueryResultFinalizer.apply(repository, current, it) }
+            Log.d(TAG, "abort($outTradeNo): follow-up query resolved to ${finalized?.state}")
+            if (finalized != null) {
+                if (finalized.state == TransactionState.SUCCEEDED) onSucceeded(finalized.outTradeNo)
             } else {
                 val message = "Abort failed: code=${response.code} message=${response.message}"
                 repository.updateState(current.copy(lastError = message), current.state)
