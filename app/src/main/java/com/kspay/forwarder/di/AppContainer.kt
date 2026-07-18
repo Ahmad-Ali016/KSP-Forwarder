@@ -12,6 +12,7 @@ import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.kpay.DefaultWorkingKeyStore
 import com.kspay.forwarder.kpay.KposClientFactory
 import com.kspay.forwarder.kpay.SaleController
+import com.kspay.forwarder.kpay.SignInHeaderInterceptor
 import com.kspay.forwarder.kpay.SignedRequestInterceptor
 import com.kspay.forwarder.kpay.signInWithFixedKeys
 import com.kspay.forwarder.net.KspayClientFactory
@@ -46,7 +47,11 @@ class DefaultAppContainer(context: Context) : AppContainer {
     // Robolectric test that boots this Application via RuntimeEnvironment.getApplication(),
     // not just ones that actually exercise a sale.
     private val workingKeyStore by lazy { DefaultWorkingKeyStore(context) }
-    private val unsignedKposApi by lazy { KposClientFactory.create() }
+    private val unsignedKposApi by lazy {
+        KposClientFactory.create(
+            client = OkHttpClient.Builder().addInterceptor(SignInHeaderInterceptor()).build(),
+        )
+    }
     private val signedKposApi by lazy {
         KposClientFactory.create(
             client = OkHttpClient.Builder()

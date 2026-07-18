@@ -1,6 +1,7 @@
 package com.kspay.forwarder.kpay
 
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -19,7 +20,10 @@ class KposApiSignInTest {
     fun setUp() {
         server = MockWebServer()
         server.start()
-        api = KposClientFactory.create(baseUrl = server.url("/").toString())
+        api = KposClientFactory.create(
+            baseUrl = server.url("/").toString(),
+            client = OkHttpClient.Builder().addInterceptor(SignInHeaderInterceptor()).build(),
+        )
     }
 
     @After
@@ -62,6 +66,17 @@ class KposApiSignInTest {
         val recorded = server.takeRequest()
         assertNull(recorded.getHeader("signature"))
         assertEquals("/v2/pos/sign", recorded.path)
+    }
+
+    @Test
+    fun `sign-in request carries timestamp and nonceStr headers`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{"platformPublicKey":"a","appPrivateKey":"b"}}"""))
+
+        api.signInWithFixedKeys(appId = "202xxxxxxxxxx", appSecret = "secret")
+
+        val recorded = server.takeRequest()
+        assertTrue(recorded.getHeader("timestamp")?.toLongOrNull() != null)
+        assertEquals(32, recorded.getHeader("nonceStr")?.length)
     }
 
     @Test
