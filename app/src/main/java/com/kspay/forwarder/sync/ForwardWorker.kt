@@ -39,6 +39,7 @@ class ForwardWorker(
         val response = try {
             api.forwardTransaction(outbound, deviceToken)
         } catch (e: IOException) {
+            Log.w(TAG, "Forward network error for $outTradeNo: ${e.message}")
             return Result.retry()
         }
 
@@ -49,7 +50,10 @@ class ForwardWorker(
                 Result.success()
             }
             response.code() in 500..599 -> Result.retry()
-            else -> Result.failure()
+            else -> {
+                Log.w(TAG, "Forward failed for $outTradeNo: code=${response.code()} body=${response.errorBody()?.string()}")
+                Result.failure()
+            }
         }
     }
 
