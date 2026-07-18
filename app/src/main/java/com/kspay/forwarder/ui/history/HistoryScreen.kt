@@ -44,6 +44,9 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(transaction.outTradeNo, style = MaterialTheme.typography.bodySmall)
+                    if (transaction.lastError != null) {
+                        Text("Error: " + transaction.lastError, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 HorizontalDivider()
             }
