@@ -1,5 +1,6 @@
 package com.kspay.forwarder.kpay
 
+import android.util.Log
 import com.kspay.forwarder.data.LocalTransaction
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 private const val PAYMENT_TYPE_CARD = 1
+private const val TAG = "SaleController"
 
 /**
  * Orchestrates a Charge tap end to end: persists the DRAFT, then runs sign-in (only if no
@@ -78,7 +80,9 @@ class SaleController(
     suspend fun abort(outTradeNo: String) {
         val transaction = repository.findByOutTradeNo(outTradeNo) ?: return
         if (transaction.state != TransactionState.POLLING) return
+        Log.d(TAG, "abort($outTradeNo): cancelling active poll job")
         activeSales[outTradeNo]?.cancelAndJoin()
+        Log.d(TAG, "abort($outTradeNo): poll job cancelled")
 
         // Re-read: the poll loop may have already reached a terminal state in the moment before
         // cancellation took effect -- if so, that result is real and must not be overwritten.
@@ -86,7 +90,9 @@ class SaleController(
         if (current.state != TransactionState.POLLING) return
 
         try {
+            Log.d(TAG, "abort($outTradeNo): calling close()")
             val response = signedApi.close(CloseRequest(outTradeNo))
+            Log.d(TAG, "abort($outTradeNo): close() responded code=${response.code} message=${response.message}")
             if (response.isSuccess) {
                 repository.updateState(current, TransactionState.ABORTED)
             } else {
@@ -96,6 +102,7 @@ class SaleController(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            Log.w(TAG, "abort($outTradeNo): close() threw ${e.message}", e)
             repository.updateState(current.copy(lastError = "Abort failed: ${e.message}"), current.state)
         }
     }
