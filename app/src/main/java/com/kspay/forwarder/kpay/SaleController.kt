@@ -54,6 +54,31 @@ class SaleController(
         }
     }
 
+    /**
+     * Debug-only: aborts a still-pending (POLLING) sale via KPay's close endpoint. No-ops for any
+     * other state -- KPay itself rejects close on an already-completed sale, and there is nothing
+     * to abort before a sale has been sent. On success marks ABORTED; on rejection (e.g. KPay's
+     * 2-in-1-background-mode caveat, or the sale completing in the meantime) records lastError and
+     * leaves the transaction in its current state rather than falsely marking it ABORTED.
+     */
+    suspend fun abort(outTradeNo: String) {
+        val transaction = repository.findByOutTradeNo(outTradeNo) ?: return
+        if (transaction.state != TransactionState.POLLING) return
+        try {
+            val response = signedApi.close(CloseRequest(outTradeNo))
+            if (response.isSuccess) {
+                repository.updateState(transaction, TransactionState.ABORTED)
+            } else {
+                val message = "Abort failed: code=${response.code} message=${response.message}"
+                repository.updateState(transaction.copy(lastError = message), transaction.state)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            repository.updateState(transaction.copy(lastError = "Abort failed: ${e.message}"), transaction.state)
+        }
+    }
+
     private suspend fun ensureSignedIn() {
         if (workingKeyStore.get() != null) return
         val response = unsignedApi.signInWithFixedKeys(appId, appSecret)

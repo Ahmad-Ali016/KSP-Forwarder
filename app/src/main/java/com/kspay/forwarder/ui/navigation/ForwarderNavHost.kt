@@ -71,6 +71,8 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val outTradeNo = backStackEntry.arguments?.getString(OUT_TRADE_NO_ARG).orEmpty()
             val repository = rememberTransactionRepository()
+            val container = rememberAppContainer()
+            val scope = rememberCoroutineScope()
             val viewModel: InProgressViewModel = viewModel(
                 factory = viewModelFactory { initializer { InProgressViewModel(repository) } },
             )
@@ -82,6 +84,7 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
                         popUpTo(ForwarderDestination.InProgress.route) { inclusive = true }
                     }
                 },
+                onAbort = { scope.launch { container.saleController.abort(outTradeNo) } },
             )
         }
         composable(

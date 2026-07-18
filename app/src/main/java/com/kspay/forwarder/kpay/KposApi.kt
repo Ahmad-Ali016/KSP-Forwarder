@@ -33,6 +33,15 @@ interface KposApi {
         @Query("outTradeNo") outTradeNo: String,
         @Query("includeReceipt") includeReceipt: Boolean = true,
     ): KposEnvelope<QueryResponse>
+
+    /**
+     * Must be called on a client with SignedRequestInterceptor attached. Aborts a still-pending
+     * sale (no final payResult yet) -- KPay rejects this (e.g. code 20010) once the sale has
+     * already completed. Distinct from cancel/refund, which reverse an already-settled payment
+     * and are out of V1 scope.
+     */
+    @POST("/v2/pos/sales/close")
+    suspend fun close(@Body request: CloseRequest): KposEnvelope<Map<String, Any?>?>
 }
 
 /**

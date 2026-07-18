@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.kspay.forwarder.BuildConfig
 import com.kspay.forwarder.data.LocalTransaction
 
 @Composable
@@ -22,6 +24,7 @@ fun InProgressScreen(
     outTradeNo: String,
     viewModel: InProgressViewModel,
     onFinished: (LocalTransaction) -> Unit = {},
+    onAbort: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -50,5 +53,10 @@ fun InProgressScreen(
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 24.dp),
         )
+        if (BuildConfig.DEBUG && uiState is InProgressUiState.Polling) {
+            OutlinedButton(onClick = onAbort, modifier = Modifier.padding(top = 24.dp)) {
+                Text("Abort (debug)")
+            }
+        }
     }
 }

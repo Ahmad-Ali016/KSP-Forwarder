@@ -211,4 +211,45 @@ class SaleControllerTest {
         assertEquals(0, server.requestCount)
         assertNull(store.get())
     }
+
+    @Test
+    fun `abort marks a POLLING transaction ABORTED on a successful close`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.POLLING)
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+
+        controller(store).abort(draft.outTradeNo)
+
+        val persisted = repository.findByOutTradeNo(draft.outTradeNo)
+        assertEquals(TransactionState.ABORTED, persisted?.state)
+    }
+
+    @Test
+    fun `abort records lastError and leaves state unchanged when KPay rejects the close`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.POLLING)
+        server.enqueue(
+            MockResponse().setBody("""{"code":20010,"data":null,"message":"Transaction completed, cannot be closed"}"""),
+        )
+
+        controller(store).abort(draft.outTradeNo)
+
+        val persisted = repository.findByOutTradeNo(draft.outTradeNo)
+        assertEquals(TransactionState.POLLING, persisted?.state)
+        assertNotNull(persisted?.lastError)
+    }
+
+    @Test
+    fun `abort is a no-op for a transaction that is not POLLING`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+
+        controller(store).abort(draft.outTradeNo)
+
+        assertEquals(0, server.requestCount)
+        val persisted = repository.findByOutTradeNo(draft.outTradeNo)
+        assertEquals(TransactionState.DRAFT, persisted?.state)
+    }
 }
