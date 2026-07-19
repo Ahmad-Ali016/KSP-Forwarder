@@ -8,6 +8,12 @@ data class PrintRequest(val steps: List<PrintStep>)
  * leftTextContent/rightTextContent; FEED: feedLine). Barcode/QR/image steps are not used by
  * ReceiptFormatter (no barcode on the receipt, per the 2026-07-19 decision) but the fields exist
  * to match KPay's documented request shape exactly.
+ *
+ * `alignment` is always sent, never left null -- confirmed live (2026-07-20) that KPOS's own
+ * server unconditionally calls `PrintBody.Step.getAlignment()` while processing every step
+ * regardless of printType, and throws an unhandled NullPointerException (crashing the request
+ * with an empty-body HTTP 500) if it's absent. The docs only document alignment as "valid" for
+ * TEXT, but KPOS's own bug means every step needs an explicit value regardless.
  */
 data class PrintStep(
     val printType: String,
@@ -15,14 +21,14 @@ data class PrintStep(
     val leftTextContent: String? = null,
     val rightTextContent: String? = null,
     val textSize: String? = null,
-    val alignment: String? = null,
+    val alignment: String = "LEFT",
     val qrcodeContent: String? = null,
     val barcodeContent: String? = null,
     val image: String? = null,
     val feedLine: Int? = null,
 ) {
     companion object {
-        fun text(content: String, size: String? = null, alignment: String? = null) =
+        fun text(content: String, size: String? = null, alignment: String = "LEFT") =
             PrintStep(printType = "TEXT", textContent = content, textSize = size, alignment = alignment)
 
         fun lrText(left: String, right: String, size: String? = null) =

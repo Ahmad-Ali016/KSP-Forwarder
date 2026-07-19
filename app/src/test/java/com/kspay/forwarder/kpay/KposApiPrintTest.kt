@@ -72,6 +72,9 @@ class KposApiPrintTest {
         val body = recorded.body.readUtf8()
         assertTrue(body.contains("\"textContent\":\"KSPay\""))
         assertTrue(body.contains("\"leftTextContent\":\"BASE\""))
+        // KPOS's server crashes with an NPE (confirmed live, 2026-07-20) if any step is missing
+        // "alignment" -- every step, including LR_TEXT, must always carry an explicit value.
+        assertEquals(2, "\"alignment\":\"LEFT\"".toRegex().findAll(body).count())
         assertNotNull(recorded.getHeader("signature"))
         assertNotNull(recorded.getHeader("timestamp"))
         assertNotNull(recorded.getHeader("nonceStr"))
