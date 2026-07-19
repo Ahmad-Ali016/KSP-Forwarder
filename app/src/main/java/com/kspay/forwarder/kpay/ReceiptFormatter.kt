@@ -46,7 +46,11 @@ private val TXN_TIME_FORMAT = SimpleDateFormat("d/M/yyyy HH:mm:ss", Locale.US)
  * passenger receipt actually needs -- Platform MID, Platform TID, Card SN, and ATC are dropped
  * because KPay's API never returns them at all; AID, APP label, TC, ACode, Batch, and Trace are
  * dropped too (2026-07-20) since they're processing-detail fields a passenger doesn't need and
- * aren't always populated (e.g. some contactless taps).
+ * aren't always populated (e.g. some contactless taps). The terminal model/version footer
+ * (terminalType/appVersion) is dropped too -- not useful to a passenger. `OutTrade#` (the
+ * forwarder's own outTradeNo) is always printed alongside KPay's own `Ref/Transaction ID` so a
+ * transaction can be looked up directly in the KSPay backend/admin console -- outTradeNo is the
+ * idempotency key KSPay's own database stores the record under.
  */
 object ReceiptFormatter {
 
@@ -70,7 +74,8 @@ object ReceiptFormatter {
         // line is still added conditionally, never sent blank: KPay's docs annotate print-request
         // fields e.g. "String (1,100)" -- a minimum length of 1, not just a max.
         result.cardNo?.let { steps += PrintStep.lrText("Card No:", formatCardNo(it, result.cardInputCode)) }
-        result.refNo?.let { steps += PrintStep.lrText("Ref:", it) }
+        result.refNo?.let { steps += PrintStep.lrText("Ref/Transaction ID:", it) }
+        steps += PrintStep.lrText("OutTrade#:", transaction.outTradeNo)
         result.commitTime?.let { steps += PrintStep.lrText("Txn time:", formatCommitTime(it)) }
         steps += PrintStep.text(DIVIDER)
 
@@ -88,9 +93,6 @@ object ReceiptFormatter {
         steps += PrintStep.text("------Merchant Copy------", alignment = "CENTER")
         steps += PrintStep.text("PLEASE RETAIN RECEIPT", alignment = "CENTER")
         steps += PrintStep.text("FOR YOUR RECORDS", alignment = "CENTER")
-        if (result.terminalType != null && result.appVersion != null) {
-            steps += PrintStep.text("${result.terminalType} - ${result.appVersion}", alignment = "CENTER")
-        }
 
         return steps
     }

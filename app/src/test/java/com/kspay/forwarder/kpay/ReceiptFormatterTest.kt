@@ -102,6 +102,20 @@ class ReceiptFormatterTest {
     }
 
     @Test
+    fun `never prints the terminal model-version footer`() {
+        val steps = ReceiptFormatter.buildSteps(transaction(), result(), tid = "00000917")
+
+        assertFalse(steps.any { it.textContent?.contains("N950") == true })
+    }
+
+    @Test
+    fun `always prints OutTrade# with the forwarder's own outTradeNo`() {
+        val steps = ReceiptFormatter.buildSteps(transaction(), result(cardNo = null, refNo = null), tid = "00000917")
+
+        assertTrue(steps.any { it.leftTextContent == "OutTrade#:" && it.rightTextContent == "OT-1" })
+    }
+
+    @Test
     fun `omits the TID line when no TID is available`() {
         val steps = ReceiptFormatter.buildSteps(transaction(), result(), tid = null)
 
@@ -134,6 +148,13 @@ class ReceiptFormatterTest {
     }
 
     @Test
+    fun `renders KPay's ref under the Ref-Transaction ID label`() {
+        val steps = ReceiptFormatter.buildSteps(transaction(), result(), tid = "00000917")
+
+        assertTrue(steps.any { it.leftTextContent == "Ref/Transaction ID:" && it.rightTextContent == "260611000662" })
+    }
+
+    @Test
     fun `omits Card No, Ref, and Txn time entirely rather than sending an empty string when missing`() {
         // KPay's docs require a minimum length of 1 for these fields -- an empty string
         // reproduced a real HTTP 500 from the terminal's print handler, so every one of these
@@ -145,7 +166,7 @@ class ReceiptFormatterTest {
         )
 
         assertFalse(steps.any { it.leftTextContent == "Card No:" })
-        assertFalse(steps.any { it.leftTextContent == "Ref:" })
+        assertFalse(steps.any { it.leftTextContent == "Ref/Transaction ID:" })
         assertFalse(steps.any { it.leftTextContent == "Txn time:" })
     }
 }

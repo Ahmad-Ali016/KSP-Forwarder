@@ -162,7 +162,9 @@ class SaleController(
     }
 
     private suspend fun fetchAndCacheTid(): String? {
-        val tid = signedApi.querySettlement().extra?.kpayTerminalNo
+        val response = signedApi.querySettlement()
+        val tid = response.extra?.kpayTerminalNo
+        Log.d(TAG, "fetchAndCacheTid(): code=${response.code} message=${response.message} kpayTerminalNo=$tid")
         if (tid != null) terminalInfoStore.saveTid(tid)
         return tid
     }
