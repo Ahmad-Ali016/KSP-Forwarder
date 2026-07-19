@@ -62,14 +62,22 @@ object ReceiptFormatter {
         val type = TRANSACTION_TYPE_LABELS[result.transactionType] ?: "Transaction"
         steps += PrintStep.text("$scheme $type", size = "L")
 
-        steps += PrintStep.lrText("Card No:", formatCardNo(result.cardNo, result.cardInputCode))
-        steps += PrintStep.lrText("APP label:", result.aidLabel.orEmpty())
-        steps += PrintStep.lrText("AID:", result.aid.orEmpty())
-        steps += PrintStep.lrText("Ref:", result.refNo.orEmpty())
-        steps += PrintStep.lrText("TC:", result.tc.orEmpty())
-        steps += PrintStep.lrText("Expiry: XX/XX", "ACode: ${result.authCode.orEmpty()}")
-        steps += PrintStep.lrText("Batch: ${result.batchNo.orEmpty()}", "Trace: ${result.traceNo.orEmpty()}")
-        steps += PrintStep.lrText("Txn time:", formatCommitTime(result.commitTime))
+        // KPay's docs annotate these request fields e.g. "String (1,100)" -- a minimum length of
+        // 1, not just a max. Sending an empty string for a null value violates that and appears
+        // to crash this terminal's print handler (HTTP 500, reproduced live) rather than being
+        // rejected cleanly -- so each of these is omitted entirely, never sent blank, whenever
+        // the underlying field wasn't returned for this transaction (e.g. aid/aidLabel/tc are
+        // EMV-chip fields KPay's docs note aren't populated for every card-entry method).
+        result.cardNo?.let { steps += PrintStep.lrText("Card No:", formatCardNo(it, result.cardInputCode)) }
+        result.aidLabel?.let { steps += PrintStep.lrText("APP label:", it) }
+        result.aid?.let { steps += PrintStep.lrText("AID:", it) }
+        result.refNo?.let { steps += PrintStep.lrText("Ref:", it) }
+        result.tc?.let { steps += PrintStep.lrText("TC:", it) }
+        result.authCode?.let { steps += PrintStep.lrText("Expiry: XX/XX", "ACode: $it") }
+        if (result.batchNo != null || result.traceNo != null) {
+            steps += PrintStep.lrText("Batch: ${result.batchNo.orEmpty()}", "Trace: ${result.traceNo.orEmpty()}")
+        }
+        result.commitTime?.let { steps += PrintStep.lrText("Txn time:", formatCommitTime(it)) }
         steps += PrintStep.text(DIVIDER)
 
         steps += PrintStep.lrText("BASE", "AUD " + Money.fromKpayCents(transaction.payAmountCents).setScale(2).toPlainString())
@@ -98,8 +106,7 @@ object ReceiptFormatter {
         return if (cardInputCode != null) "$no($cardInputCode)" else no
     }
 
-    private fun formatCommitTime(commitTime: Long?): String =
-        commitTime?.let { TXN_TIME_FORMAT.format(Date(it)) }.orEmpty()
+    private fun formatCommitTime(commitTime: Long): String = TXN_TIME_FORMAT.format(Date(commitTime))
 
     private fun amountOrZero(centString: String?): String =
         centString?.let { Money.fromKpayCents(it).setScale(2).toPlainString() } ?: "0.00"

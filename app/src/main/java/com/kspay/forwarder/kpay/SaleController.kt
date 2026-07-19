@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.util.concurrent.ConcurrentHashMap
 
 private const val PAYMENT_TYPE_CARD = 1
@@ -147,7 +148,11 @@ class SaleController(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "printReceipt($outTradeNo): print() threw ${e.message}", e)
+            // HttpException.message is just "HTTP 500 Internal Server Error" -- the real
+            // diagnostic (if KPOS's server sent one) is in the response body Retrofit otherwise
+            // discards on a non-2xx.
+            val errorBody = (e as? HttpException)?.let { runCatching { it.response()?.errorBody()?.string() }.getOrNull() }
+            Log.w(TAG, "printReceipt($outTradeNo): print() threw ${e.message} body=$errorBody", e)
             repository.updateState(transaction.copy(lastError = "Print failed: ${e.message}"), transaction.state)
         }
     }

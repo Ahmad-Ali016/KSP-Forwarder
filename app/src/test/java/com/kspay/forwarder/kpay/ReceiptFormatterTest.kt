@@ -134,4 +134,46 @@ class ReceiptFormatterTest {
 
         assertTrue(steps.any { it.leftTextContent == "Expiry: XX/XX" })
     }
+
+    @Test
+    fun `omits lines entirely rather than sending an empty string when their data is missing`() {
+        // KPay's docs require a minimum length of 1 for these fields -- an empty string
+        // reproduced a real HTTP 500 from the terminal's print handler, so every one of these
+        // must be dropped, never sent blank, when the underlying field wasn't returned.
+        val steps = ReceiptFormatter.buildSteps(
+            transaction(),
+            result(cardNo = null, aidLabel = null, aid = null, refNo = null, tc = null, authCode = null, commitTime = null),
+            tid = "00000917",
+        )
+
+        assertFalse(steps.any { it.leftTextContent == "Card No:" })
+        assertFalse(steps.any { it.leftTextContent == "APP label:" })
+        assertFalse(steps.any { it.leftTextContent == "AID:" })
+        assertFalse(steps.any { it.leftTextContent == "Ref:" })
+        assertFalse(steps.any { it.leftTextContent == "TC:" })
+        assertFalse(steps.any { it.leftTextContent == "Expiry: XX/XX" })
+        assertFalse(steps.any { it.leftTextContent == "Txn time:" })
+    }
+
+    @Test
+    fun `omits the Batch-Trace line only when both are missing`() {
+        val steps = ReceiptFormatter.buildSteps(
+            transaction(),
+            result(batchNo = null, traceNo = null),
+            tid = "00000917",
+        )
+
+        assertFalse(steps.any { it.leftTextContent?.startsWith("Batch:") == true })
+    }
+
+    @Test
+    fun `keeps the Batch-Trace line when only one side is present`() {
+        val steps = ReceiptFormatter.buildSteps(
+            transaction(),
+            result(batchNo = "000001", traceNo = null),
+            tid = "00000917",
+        )
+
+        assertTrue(steps.any { it.leftTextContent == "Batch: 000001" && it.rightTextContent == "Trace: " })
+    }
 }
