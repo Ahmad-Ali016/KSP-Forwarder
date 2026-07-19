@@ -41,10 +41,12 @@ private val TXN_TIME_FORMAT = SimpleDateFormat("d/M/yyyy HH:mm:ss", Locale.US)
 
 /**
  * Builds the /v2/pos/print step list for a passenger receipt, modeled on KPay's own printed
- * receipt (see BUILD_PROGRESS.md's 2026-07-19 receipt-printing entry for the source photos and
- * the field-availability decisions this was built against). Platform MID, Platform TID, Card SN,
- * and ATC are deliberately omitted -- KPay's API does not return them anywhere (confirmed against
- * the full documented includeReceipt field list), unlike every other line here.
+ * receipt (see BUILD_PROGRESS.md's 2026-07-19/2026-07-20 receipt-printing entries for the source
+ * photos and the field decisions this was built against). Deliberately limited to what a
+ * passenger receipt actually needs -- Platform MID, Platform TID, Card SN, and ATC are dropped
+ * because KPay's API never returns them at all; AID, APP label, TC, ACode, Batch, and Trace are
+ * dropped too (2026-07-20) since they're processing-detail fields a passenger doesn't need and
+ * aren't always populated (e.g. some contactless taps).
  */
 object ReceiptFormatter {
 
@@ -62,21 +64,13 @@ object ReceiptFormatter {
         val type = TRANSACTION_TYPE_LABELS[result.transactionType] ?: "Transaction"
         steps += PrintStep.text("$scheme $type", size = "L")
 
-        // KPay's docs annotate these request fields e.g. "String (1,100)" -- a minimum length of
-        // 1, not just a max. Sending an empty string for a null value violates that and appears
-        // to crash this terminal's print handler (HTTP 500, reproduced live) rather than being
-        // rejected cleanly -- so each of these is omitted entirely, never sent blank, whenever
-        // the underlying field wasn't returned for this transaction (e.g. aid/aidLabel/tc are
-        // EMV-chip fields KPay's docs note aren't populated for every card-entry method).
+        // Only fields a passenger receipt actually needs -- aid/aidLabel/tc/authCode/batchNo/
+        // traceNo (EMV/processing-detail fields, not always populated) are dropped entirely, not
+        // just conditionally, per the 2026-07-20 decision to stop chasing them. Each remaining
+        // line is still added conditionally, never sent blank: KPay's docs annotate print-request
+        // fields e.g. "String (1,100)" -- a minimum length of 1, not just a max.
         result.cardNo?.let { steps += PrintStep.lrText("Card No:", formatCardNo(it, result.cardInputCode)) }
-        result.aidLabel?.let { steps += PrintStep.lrText("APP label:", it) }
-        result.aid?.let { steps += PrintStep.lrText("AID:", it) }
         result.refNo?.let { steps += PrintStep.lrText("Ref:", it) }
-        result.tc?.let { steps += PrintStep.lrText("TC:", it) }
-        result.authCode?.let { steps += PrintStep.lrText("Expiry: XX/XX", "ACode: $it") }
-        if (result.batchNo != null || result.traceNo != null) {
-            steps += PrintStep.lrText("Batch: ${result.batchNo.orEmpty()}", "Trace: ${result.traceNo.orEmpty()}")
-        }
         result.commitTime?.let { steps += PrintStep.lrText("Txn time:", formatCommitTime(it)) }
         steps += PrintStep.text(DIVIDER)
 
