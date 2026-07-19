@@ -9,6 +9,7 @@ import com.kspay.forwarder.BuildConfig
 import com.kspay.forwarder.data.ForwarderDatabase
 import com.kspay.forwarder.data.OutTradeNoGenerator
 import com.kspay.forwarder.data.TransactionRepository
+import com.kspay.forwarder.kpay.DefaultTerminalInfoStore
 import com.kspay.forwarder.kpay.DefaultWorkingKeyStore
 import com.kspay.forwarder.kpay.KposClientFactory
 import com.kspay.forwarder.kpay.SaleController
@@ -47,6 +48,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     // Robolectric test that boots this Application via RuntimeEnvironment.getApplication(),
     // not just ones that actually exercise a sale.
     private val workingKeyStore by lazy { DefaultWorkingKeyStore(context) }
+
+    // Not lazy: unlike workingKeyStore, this only touches plain SharedPreferences (no
+    // AndroidKeyStore), so it's safe to construct eagerly under Robolectric.
+    private val terminalInfoStore = DefaultTerminalInfoStore(context)
     private val unsignedKposApi by lazy {
         KposClientFactory.create(
             client = OkHttpClient.Builder().addInterceptor(SignInHeaderInterceptor()).build(),
@@ -92,6 +97,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             unsignedApi = unsignedKposApi,
             signedApi = signedKposApi,
             workingKeyStore = workingKeyStore,
+            terminalInfoStore = terminalInfoStore,
             appId = BuildConfig.KPAY_APP_ID,
             appSecret = BuildConfig.KPAY_APP_SECRET,
             scope = applicationScope,

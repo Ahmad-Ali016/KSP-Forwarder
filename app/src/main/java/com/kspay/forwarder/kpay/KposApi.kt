@@ -42,6 +42,18 @@ interface KposApi {
      */
     @POST("/v2/pos/sales/close")
     suspend fun close(@Body request: CloseRequest): KposEnvelope<Map<String, Any?>?>
+
+    /** Must be called on a client with SignedRequestInterceptor attached. Prints a custom receipt. */
+    @POST("/v2/pos/print")
+    suspend fun print(@Body request: PrintRequest): KposEnvelope<Map<String, Any?>?>
+
+    /**
+     * Must be called on a client with SignedRequestInterceptor attached. Used only to read
+     * kpayTerminalNo (TID) -- per KPay's docs this is not returned per-transaction, only via this
+     * endpoint, so ReceiptFormatter callers fetch it once and cache it (see TerminalInfoStore).
+     */
+    @GET("/v2/pos/query/settlement")
+    suspend fun querySettlement(@Query("previousBatch") previousBatch: Boolean = false): SettlementDataEnvelope
 }
 
 /**

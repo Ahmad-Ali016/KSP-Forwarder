@@ -7,8 +7,9 @@ import com.kspay.forwarder.crypto.maskCardNo
  * 4 returned, 5 canceled, 6 transaction canceled.
  *
  * `cardNo`/`cardInputCode`/`authCode`/`batchNo`/`traceNo`/`commitTime`/`appVersion`/
- * `terminalType`/`deviceID` are the "KPay receipt data" fields — per KPay's docs these are
- * ONLY populated when the request sets `includeReceipt=true` (see `KposApi.query`).
+ * `terminalType`/`deviceID`/`kpayMerchantNo`/`aid`/`aidLabel`/`tc` are the "KPay receipt data"
+ * fields — per KPay's docs these are ONLY populated when the request sets `includeReceipt=true`
+ * (see `KposApi.query`). Used by `ReceiptFormatter` to print a passenger receipt.
  * `deviceID`/`commitTime` are load-bearing: the backend's driver attribution depends on them
  * being present in every forwarded transaction, so `includeReceipt` must never be dropped.
  */
@@ -41,6 +42,10 @@ data class QueryResponse(
     val appVersion: String? = null,
     val terminalType: String? = null,
     val deviceID: String? = null,
+    val kpayMerchantNo: String? = null,
+    val aid: String? = null,
+    val aidLabel: String? = null,
+    val tc: String? = null,
 ) {
     // PII-safe: if this object is ever logged/interpolated, cardNo must never appear unmasked.
     override fun toString(): String =

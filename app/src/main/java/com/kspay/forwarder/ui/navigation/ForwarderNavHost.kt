@@ -93,8 +93,11 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val outTradeNo = backStackEntry.arguments?.getString(OUT_TRADE_NO_ARG).orEmpty()
             val repository = rememberTransactionRepository()
+            val container = rememberAppContainer()
             val viewModel: ResultViewModel = viewModel(
-                factory = viewModelFactory { initializer { ResultViewModel(repository) } },
+                factory = viewModelFactory {
+                    initializer { ResultViewModel(repository, onPrintReceipt = container.saleController::printReceipt) }
+                },
             )
             ResultScreen(
                 outTradeNo = outTradeNo,
@@ -108,8 +111,11 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
         }
         composable(ForwarderDestination.History.route) {
             val repository = rememberTransactionRepository()
+            val container = rememberAppContainer()
             val viewModel: HistoryViewModel = viewModel(
-                factory = viewModelFactory { initializer { HistoryViewModel(repository) } },
+                factory = viewModelFactory {
+                    initializer { HistoryViewModel(repository, onPrintReceipt = container.saleController::printReceipt) }
+                },
             )
             HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }

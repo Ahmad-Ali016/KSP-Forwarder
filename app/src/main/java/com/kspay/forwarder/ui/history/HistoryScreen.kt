@@ -18,11 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kspay.forwarder.crypto.Money
+import com.kspay.forwarder.data.TransactionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 val TIMESTAMP_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+private val PRINTABLE_STATES =
+    setOf(TransactionState.SUCCEEDED, TransactionState.FORWARDING, TransactionState.FORWARDED)
 
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
@@ -52,6 +56,11 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
                     Text(TIMESTAMP_FORMAT.format(Date(transaction.updatedAt)), style = MaterialTheme.typography.bodySmall)
                     if (transaction.lastError != null) {
                         Text("Error: " + transaction.lastError, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (transaction.state in PRINTABLE_STATES) {
+                        OutlinedButton(onClick = { viewModel.printReceipt(transaction.outTradeNo) }) {
+                            Text("Print")
+                        }
                     }
                 }
                 HorizontalDivider()

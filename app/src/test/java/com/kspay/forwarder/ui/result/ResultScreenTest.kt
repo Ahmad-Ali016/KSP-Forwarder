@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -100,15 +101,59 @@ class ResultScreenTest {
     }
 
     @Test
-    fun `tapping Done invokes the callback`() = runTest {
+    fun `tapping Done invokes the callback for a non-success outcome`() = runTest {
         val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
-        repository.updateState(draft, TransactionState.SUCCEEDED)
+        repository.updateState(draft, TransactionState.NON_SUCCESS)
         var doneCalled = false
         val viewModel = ResultViewModel(repository)
 
         composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel, onDone = { doneCalled = true }) }
         composeRule.onNodeWithText("Done").performClick()
 
+        assert(doneCalled)
+    }
+
+    @Test
+    fun `SUCCEEDED shows Print and Cancel instead of Done`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.SUCCEEDED)
+        val viewModel = ResultViewModel(repository)
+
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel) }
+
+        composeRule.onNodeWithText("Print", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Cancel", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithText("Done", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `tapping Cancel invokes onDone without printing`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.SUCCEEDED)
+        var doneCalled = false
+        var printCalled = false
+        val viewModel = ResultViewModel(repository, onPrintReceipt = { printCalled = true })
+
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel, onDone = { doneCalled = true }) }
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        assert(doneCalled)
+        assert(!printCalled)
+    }
+
+    @Test
+    fun `tapping Print calls the print callback then invokes onDone`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.SUCCEEDED)
+        var doneCalled = false
+        var printedOutTradeNo: String? = null
+        val viewModel = ResultViewModel(repository, onPrintReceipt = { printedOutTradeNo = it })
+
+        composeRule.setContent { ResultScreen(draft.outTradeNo, viewModel, onDone = { doneCalled = true }) }
+        composeRule.onNodeWithText("Print").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(draft.outTradeNo, printedOutTradeNo)
         assert(doneCalled)
     }
 }

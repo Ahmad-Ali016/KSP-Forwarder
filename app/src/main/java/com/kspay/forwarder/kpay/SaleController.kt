@@ -31,6 +31,7 @@ class SaleController(
     private val unsignedApi: KposApi,
     private val signedApi: KposApi,
     private val workingKeyStore: WorkingKeyStore,
+    private val terminalInfoStore: TerminalInfoStore,
     private val appId: String,
     private val appSecret: String,
     private val scope: CoroutineScope,
@@ -121,6 +122,40 @@ class SaleController(
             Log.w(TAG, "abort($outTradeNo): close() threw ${e.message}", e)
             repository.updateState(current.copy(lastError = "Abort failed: ${e.message}"), current.state)
         }
+    }
+
+    /**
+     * Prints a passenger receipt for a completed transaction via KPay's custom-print endpoint.
+     * KPOS never auto-prints for transactions the forwarder drives -- includeReceipt=true on
+     * query() (required for deviceID/commitTime) suppresses KPOS's own auto-print, per KPay's
+     * docs -- so this is the only way a passenger gets a receipt. Fetches and caches the
+     * terminal ID (TID) once via querySettlement(), since KPay only returns it there, never
+     * per-transaction. Failures are recorded as lastError rather than thrown, so a failed print
+     * doesn't disrupt the transaction's own state -- mirrors abort()'s error handling.
+     */
+    suspend fun printReceipt(outTradeNo: String) {
+        val transaction = repository.findByOutTradeNo(outTradeNo) ?: return
+        val result = transaction.rawSaleResultJson?.let(queryResponseAdapter::fromJson) ?: return
+        try {
+            val tid = terminalInfoStore.getTid() ?: fetchAndCacheTid()
+            val response = signedApi.print(PrintRequest(ReceiptFormatter.buildSteps(transaction, result, tid)))
+            if (!response.isSuccess) {
+                Log.w(TAG, "printReceipt($outTradeNo): print() rejected code=${response.code} message=${response.message}")
+                val message = "Print failed: code=${response.code} message=${response.message}"
+                repository.updateState(transaction.copy(lastError = message), transaction.state)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "printReceipt($outTradeNo): print() threw ${e.message}", e)
+            repository.updateState(transaction.copy(lastError = "Print failed: ${e.message}"), transaction.state)
+        }
+    }
+
+    private suspend fun fetchAndCacheTid(): String? {
+        val tid = signedApi.querySettlement().extra?.kpayTerminalNo
+        if (tid != null) terminalInfoStore.saveTid(tid)
+        return tid
     }
 
     private suspend fun ensureSignedIn() {

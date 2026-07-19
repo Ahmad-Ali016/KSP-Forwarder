@@ -35,6 +35,12 @@ private class FakeWorkingKeyStore(initial: SignInResponse? = null) : WorkingKeyS
     override fun clear() { current = null }
 }
 
+private class FakeTerminalInfoStore(initial: String? = null) : TerminalInfoStore {
+    private var current = initial
+    override fun getTid(): String? = current
+    override fun saveTid(tid: String) { current = tid }
+}
+
 /**
  * SaleController runs the sale+poll flow on its own background CoroutineScope by design (see
  * SaleController's KDoc) — a real scope here, not runTest's TestScope, so these tests exercise
@@ -71,17 +77,21 @@ class SaleControllerTest {
             .build(),
     )
 
-    private fun controller(store: WorkingKeyStore, onSucceeded: suspend (String) -> Unit = {}) =
-        SaleController(
-            repository,
-            unsignedApi,
-            signedApi(store),
-            store,
-            "test-app-id",
-            "test-app-secret",
-            backgroundScope,
-            onSucceeded,
-        )
+    private fun controller(
+        store: WorkingKeyStore,
+        terminalInfoStore: TerminalInfoStore = FakeTerminalInfoStore(),
+        onSucceeded: suspend (String) -> Unit = {},
+    ) = SaleController(
+        repository,
+        unsignedApi,
+        signedApi(store),
+        store,
+        terminalInfoStore,
+        "test-app-id",
+        "test-app-secret",
+        backgroundScope,
+        onSucceeded,
+    )
 
     private val nonTerminalStates =
         setOf(TransactionState.DRAFT, TransactionState.SALE_SENT, TransactionState.POLLING)
@@ -302,5 +312,69 @@ class SaleControllerTest {
         assertEquals(0, server.requestCount)
         val persisted = repository.findByOutTradeNo(draft.outTradeNo)
         assertEquals(TransactionState.DRAFT, persisted?.state)
+    }
+
+    private fun successResultJson() =
+        """{"outTradeNO":"OT","payResult":2,"payAmount":"000000000100","orderAmount":"000000000100","refNo":"REF1"}"""
+
+    private suspend fun succeededTransaction(): LocalTransaction {
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+        val withResult = draft.copy(rawSaleResultJson = successResultJson())
+        return repository.updateState(withResult, TransactionState.SUCCEEDED)
+    }
+
+    @Test
+    fun `printReceipt fetches and caches the TID on first call, reusing it on the next`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val tidStore = FakeTerminalInfoStore()
+        val transaction = succeededTransaction()
+        server.enqueue(MockResponse().setBody("""{"code":10000,"extra":{"kpayTerminalNo":"00000917"},"message":null}"""))
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+        val ctrl = controller(store, terminalInfoStore = tidStore)
+
+        ctrl.printReceipt(transaction.outTradeNo)
+        ctrl.printReceipt(transaction.outTradeNo)
+
+        assertEquals("00000917", tidStore.getTid())
+        assertEquals(3, server.requestCount) // settlement (once) + print + print
+        assertEquals("/v2/pos/query/settlement?previousBatch=false", server.takeRequest().path)
+        assertEquals("/v2/pos/print", server.takeRequest().path)
+        assertEquals("/v2/pos/print", server.takeRequest().path)
+    }
+
+    @Test
+    fun `printReceipt skips the settlement fetch when a TID is already cached`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val transaction = succeededTransaction()
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+
+        controller(store, terminalInfoStore = FakeTerminalInfoStore("00000917")).printReceipt(transaction.outTradeNo)
+
+        assertEquals(1, server.requestCount)
+        assertEquals("/v2/pos/print", server.takeRequest().path)
+    }
+
+    @Test
+    fun `printReceipt records lastError and leaves state unchanged when KPay rejects the print`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val transaction = succeededTransaction()
+        server.enqueue(MockResponse().setBody("""{"code":50003,"data":null,"message":"Printer status abnormal"}"""))
+
+        controller(store, terminalInfoStore = FakeTerminalInfoStore("00000917")).printReceipt(transaction.outTradeNo)
+
+        val persisted = repository.findByOutTradeNo(transaction.outTradeNo)
+        assertEquals(TransactionState.SUCCEEDED, persisted?.state)
+        assertNotNull(persisted?.lastError)
+    }
+
+    @Test
+    fun `printReceipt is a no-op for a transaction with no captured result`() = runTest {
+        val store = FakeWorkingKeyStore(SignInResponse("pub", generatePrivateKeyBase64()))
+        val draft = repository.createDraft(payAmountCents = "000000000100", currency = "036", paymentType = 1)
+
+        controller(store).printReceipt(draft.outTradeNo)
+
+        assertEquals(0, server.requestCount)
     }
 }

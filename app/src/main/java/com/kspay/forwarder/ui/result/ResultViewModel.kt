@@ -17,19 +17,30 @@ import kotlinx.coroutines.launch
 private val SUCCESS_STATES =
     setOf(TransactionState.SUCCEEDED, TransactionState.FORWARDING, TransactionState.FORWARDED)
 
-class ResultViewModel(private val repository: TransactionRepository) : ViewModel() {
+class ResultViewModel(
+    private val repository: TransactionRepository,
+    private val onPrintReceipt: suspend (String) -> Unit = {},
+) : ViewModel() {
 
     private val adapter = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build().adapter(QueryResponse::class.java)
 
     private val _uiState = MutableStateFlow<ResultUiState>(ResultUiState.Loading)
     val uiState: StateFlow<ResultUiState> = _uiState.asStateFlow()
 
+    private var currentOutTradeNo: String? = null
+
     fun observe(outTradeNo: String) {
+        currentOutTradeNo = outTradeNo
         viewModelScope.launch {
             repository.observe(outTradeNo).collect { transaction ->
                 _uiState.value = toUiState(transaction)
             }
         }
+    }
+
+    /** Suspends until the print call completes, so the caller can navigate on afterward. */
+    suspend fun printReceipt() {
+        currentOutTradeNo?.let { onPrintReceipt(it) }
     }
 
     private fun toUiState(transaction: LocalTransaction?): ResultUiState {

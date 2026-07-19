@@ -1,6 +1,8 @@
 package com.kspay.forwarder.ui.history
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.room.Room
@@ -15,6 +17,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -87,5 +90,30 @@ class HistoryScreenTest {
         composeRule.onNodeWithText("Back").performClick()
 
         assert(backCalled)
+    }
+
+    @Test
+    fun `a SUCCEEDED transaction shows a Print button that triggers a reprint`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000012345", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.SUCCEEDED)
+        var printedOutTradeNo: String? = null
+        val viewModel = HistoryViewModel(repository, onPrintReceipt = { printedOutTradeNo = it })
+
+        composeRule.setContent { HistoryScreen(viewModel) }
+        composeRule.onNodeWithText("Print", useUnmergedTree = true).performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(draft.outTradeNo, printedOutTradeNo)
+    }
+
+    @Test
+    fun `a NON_SUCCESS transaction has no Print button`() = runTest {
+        val draft = repository.createDraft(payAmountCents = "000000012345", currency = "036", paymentType = 1)
+        repository.updateState(draft, TransactionState.NON_SUCCESS)
+        val viewModel = HistoryViewModel(repository)
+
+        composeRule.setContent { HistoryScreen(viewModel) }
+
+        composeRule.onAllNodesWithText("Print", useUnmergedTree = true).assertCountEquals(0)
     }
 }
