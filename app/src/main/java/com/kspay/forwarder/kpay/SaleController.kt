@@ -39,7 +39,9 @@ class SaleController(
     /** Notified with the outTradeNo once a transaction reaches SUCCEEDED (real or simulated). */
     private val onSucceeded: suspend (String) -> Unit = {},
 ) {
-    private val queryResponseAdapter = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build().adapter(QueryResponse::class.java)
+    private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+    private val queryResponseAdapter = moshi.adapter(QueryResponse::class.java)
+    private val printRequestAdapter = moshi.adapter(PrintRequest::class.java)
 
     // Tracks the background runSale() job per outTradeNo so abort() can stop it before writing
     // ABORTED -- otherwise the still-running PollUseCase loop can win the race and overwrite
@@ -139,7 +141,9 @@ class SaleController(
         val result = transaction.rawSaleResultJson?.let(queryResponseAdapter::fromJson) ?: return
         try {
             val tid = terminalInfoStore.getTid() ?: fetchAndCacheTid()
-            val response = signedApi.print(PrintRequest(ReceiptFormatter.buildSteps(transaction, result, tid)))
+            val printRequest = PrintRequest(ReceiptFormatter.buildSteps(transaction, result, tid))
+            Log.d(TAG, "printReceipt($outTradeNo): sending ${printRequestAdapter.toJson(printRequest)}")
+            val response = signedApi.print(printRequest)
             if (!response.isSuccess) {
                 Log.w(TAG, "printReceipt($outTradeNo): print() rejected code=${response.code} message=${response.message}")
                 val message = "Print failed: code=${response.code} message=${response.message}"
