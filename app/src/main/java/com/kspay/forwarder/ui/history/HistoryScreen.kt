@@ -18,6 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kspay.forwarder.crypto.Money
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+val TIMESTAMP_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
@@ -44,6 +49,7 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit = {}) {
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(transaction.outTradeNo, style = MaterialTheme.typography.bodySmall)
+                    Text(TIMESTAMP_FORMAT.format(Date(transaction.updatedAt)), style = MaterialTheme.typography.bodySmall)
                     if (transaction.lastError != null) {
                         Text("Error: " + transaction.lastError, style = MaterialTheme.typography.bodySmall)
                     }
