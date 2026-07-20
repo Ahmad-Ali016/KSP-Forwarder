@@ -16,6 +16,8 @@ import com.kspay.forwarder.ForwarderApplication
 import com.kspay.forwarder.crypto.Money
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.di.AppContainer
+import com.kspay.forwarder.ui.admin.TidSettingsScreen
+import com.kspay.forwarder.ui.admin.TidSettingsViewModel
 import com.kspay.forwarder.ui.fareentry.FareEntryScreen
 import com.kspay.forwarder.ui.history.HistoryScreen
 import com.kspay.forwarder.ui.history.HistoryViewModel
@@ -63,6 +65,7 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
                     }
                 },
                 onViewHistory = { navController.navigate(ForwarderDestination.History.route) },
+                onTidSettings = { navController.navigate(ForwarderDestination.TidSettings.route) },
             )
         }
         composable(
@@ -118,6 +121,15 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
                 },
             )
             HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable(ForwarderDestination.TidSettings.route) {
+            val container = rememberAppContainer()
+            val viewModel: TidSettingsViewModel = viewModel(
+                factory = viewModelFactory {
+                    initializer { TidSettingsViewModel(container.adminPasswordStore, container.terminalInfoStore) }
+                },
+            )
+            TidSettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
     }
 }

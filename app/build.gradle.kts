@@ -41,6 +41,11 @@ android {
         // crash. Override both via local.properties once a real/local KSPay backend is reachable.
         buildConfigField("String", "KSPAY_INGEST_URL", "\"${localProperties.getProperty("kspay.ingestUrl", "http://127.0.0.1:8000/")}\"")
         buildConfigField("String", "KSPAY_DEVICE_TOKEN", "\"${localProperties.getProperty("kspay.deviceToken", "")}\"")
+
+        // Seed value only -- DefaultAdminPasswordStore persists this to EncryptedSharedPreferences
+        // on first use, then only ever checks the persisted value from then on. Changing this
+        // after first launch has no effect on an already-provisioned device.
+        buildConfigField("String", "ADMIN_DEFAULT_PASSWORD", "\"${localProperties.getProperty("admin.defaultPassword", "kspay-admin")}\"")
     }
 
     buildTypes {

@@ -60,6 +60,16 @@ class FareEntryScreenTest {
     }
 
     @Test
+    fun `tapping TID invokes the callback`() {
+        var tidSettingsOpened = false
+        composeRule.setContent { FareEntryScreen(onTidSettings = { tidSettingsOpened = true }) }
+
+        composeRule.onNodeWithText("TID").performScrollTo().performClick()
+
+        assert(tidSettingsOpened)
+    }
+
+    @Test
     fun `clear resets the display back to zero and disables Charge`() {
         composeRule.setContent { FareEntryScreen() }
         composeRule.onNodeWithText("9").performClick()

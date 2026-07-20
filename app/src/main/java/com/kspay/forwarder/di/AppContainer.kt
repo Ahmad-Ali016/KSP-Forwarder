@@ -9,12 +9,15 @@ import com.kspay.forwarder.BuildConfig
 import com.kspay.forwarder.data.ForwarderDatabase
 import com.kspay.forwarder.data.OutTradeNoGenerator
 import com.kspay.forwarder.data.TransactionRepository
+import com.kspay.forwarder.kpay.AdminPasswordStore
+import com.kspay.forwarder.kpay.DefaultAdminPasswordStore
 import com.kspay.forwarder.kpay.DefaultTerminalInfoStore
 import com.kspay.forwarder.kpay.DefaultWorkingKeyStore
 import com.kspay.forwarder.kpay.KposClientFactory
 import com.kspay.forwarder.kpay.SaleController
 import com.kspay.forwarder.kpay.SignInHeaderInterceptor
 import com.kspay.forwarder.kpay.SignedRequestInterceptor
+import com.kspay.forwarder.kpay.TerminalInfoStore
 import com.kspay.forwarder.kpay.signInWithFixedKeys
 import com.kspay.forwarder.net.KspayClientFactory
 import com.kspay.forwarder.sync.ForwarderWorkerFactory
@@ -32,6 +35,8 @@ interface AppContainer {
     val transactionRepository: TransactionRepository
     val saleController: SaleController
     val workerFactory: WorkerFactory
+    val terminalInfoStore: TerminalInfoStore
+    val adminPasswordStore: AdminPasswordStore
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -51,7 +56,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     // Not lazy: unlike workingKeyStore, this only touches plain SharedPreferences (no
     // AndroidKeyStore), so it's safe to construct eagerly under Robolectric.
-    private val terminalInfoStore = DefaultTerminalInfoStore(context)
+    override val terminalInfoStore: TerminalInfoStore = DefaultTerminalInfoStore(context)
+
+    // Lazy: same AndroidKeyStore/Robolectric reasoning as workingKeyStore above.
+    override val adminPasswordStore: AdminPasswordStore by lazy { DefaultAdminPasswordStore(context) }
     private val unsignedKposApi by lazy {
         KposClientFactory.create(
             client = OkHttpClient.Builder().addInterceptor(SignInHeaderInterceptor()).build(),

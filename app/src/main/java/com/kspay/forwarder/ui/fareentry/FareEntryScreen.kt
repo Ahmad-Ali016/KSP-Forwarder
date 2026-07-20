@@ -30,6 +30,7 @@ fun FareEntryScreen(
     onCharge: (BigDecimal) -> Unit = {},
     onSimulate: (BigDecimal) -> Unit = {},
     onViewHistory: () -> Unit = {},
+    onTidSettings: () -> Unit = {},
     viewModel: FareEntryViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -64,6 +65,16 @@ fun FareEntryScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
             Text("Charge")
+        }
+
+        // Always visible, not debug-gated -- this must work on real production terminals
+        // running the release build, since an admin sets the terminal's TID once after
+        // installing the app (see TidSettingsScreen).
+        OutlinedButton(
+            onClick = onTidSettings,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) {
+            Text("TID")
         }
 
         // Debug-build-only: bypasses KPOS entirely and fabricates a realistic SUCCEEDED
