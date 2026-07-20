@@ -112,7 +112,14 @@ class ReceiptFormatterTest {
     fun `always prints Trade with the forwarder's own outTradeNo`() {
         val steps = ReceiptFormatter.buildSteps(transaction(), result(cardNo = null, refNo = null), tid = "00000917")
 
-        assertTrue(steps.any { it.leftTextContent == "Trade" && it.rightTextContent == "OT-1" })
+        assertTrue(steps.any { it.leftTextContent == "Trade:" && it.rightTextContent == "OT-1" })
+    }
+
+    @Test
+    fun `never prints the Merchant Copy divider line`() {
+        val steps = ReceiptFormatter.buildSteps(transaction(), result(), tid = "00000917")
+
+        assertFalse(steps.any { it.textContent?.contains("Merchant Copy") == true })
     }
 
     @Test
@@ -153,7 +160,7 @@ class ReceiptFormatterTest {
     fun `renders KPay's ref under the Ref-Tran id label`() {
         val steps = ReceiptFormatter.buildSteps(transaction(), result(), tid = "00000917")
 
-        assertTrue(steps.any { it.leftTextContent == "Ref/Tran. id" && it.rightTextContent == "260611000662" })
+        assertTrue(steps.any { it.leftTextContent == "Ref/Tran. id:" && it.rightTextContent == "260611000662" })
     }
 
     @Test
@@ -168,7 +175,7 @@ class ReceiptFormatterTest {
         )
 
         assertFalse(steps.any { it.leftTextContent == "Card No:" })
-        assertFalse(steps.any { it.leftTextContent == "Ref/Tran. id" })
+        assertFalse(steps.any { it.leftTextContent == "Ref/Tran. id:" })
         assertFalse(steps.any { it.leftTextContent == "Txn time:" })
     }
 }
