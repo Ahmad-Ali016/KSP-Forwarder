@@ -11,14 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-private fun fakeAdminPasswordStore(initial: String = "real-password") = object : AdminPasswordStore {
-    private var current = initial
-    override fun verify(password: String): Boolean = password == current
-    override fun changePassword(current: String, new: String): Boolean {
-        if (!verify(current)) return false
-        this.current = new
-        return true
-    }
+private fun fakeAdminPasswordStore(expected: String = "real-password") = object : AdminPasswordStore {
+    override fun verify(password: String): Boolean = password == expected
 }
 
 private fun fakeTerminalInfoStore(initial: String? = null) = object : TerminalInfoStore {

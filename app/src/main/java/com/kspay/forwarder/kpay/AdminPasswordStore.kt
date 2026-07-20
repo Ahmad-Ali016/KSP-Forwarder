@@ -8,7 +8,6 @@ import com.kspay.forwarder.BuildConfig
 
 interface AdminPasswordStore {
     fun verify(password: String): Boolean
-    fun changePassword(current: String, new: String): Boolean
 }
 
 /**
@@ -16,11 +15,16 @@ interface AdminPasswordStore {
  * locking). EncryptedSharedPreferences-backed, same security posture as DefaultWorkingKeyStore --
  * a password is sensitive, unlike TerminalInfoStore's TID.
  *
+ * Deliberately fixed -- there is no in-app way to change it (see BUILD_PROGRESS.md's 2026-07-20
+ * "TID admin password" entry). Without a backend/account system there's no safe way to recover a
+ * forgotten changed password without wiping the whole app's local data (losing any
+ * not-yet-forwarded transactions in the process), so the password is a build-time constant
+ * instead, same trust model as KPAY_APP_ID/KPAY_APP_SECRET -- changing it is a deliberate
+ * local.properties + rebuild + redeploy action, not something adjustable from the running app.
  * BuildConfig.ADMIN_DEFAULT_PASSWORD is only a seed: on the first-ever verify() call (nothing
  * persisted yet), the default is written to encrypted storage and used for that check; every
- * check after that -- including after changePassword() -- only ever looks at the persisted
- * value, so changing the BuildConfig default post-launch has no effect on an already-provisioned
- * device.
+ * check after that only ever looks at the persisted value, so changing the BuildConfig default
+ * post-launch has no effect on an already-provisioned device (a fresh install is required).
  */
 class DefaultAdminPasswordStore(context: Context) : AdminPasswordStore {
 
@@ -38,12 +42,6 @@ class DefaultAdminPasswordStore(context: Context) : AdminPasswordStore {
     }
 
     override fun verify(password: String): Boolean = password == currentPassword()
-
-    override fun changePassword(current: String, new: String): Boolean {
-        if (!verify(current)) return false
-        prefs.edit { putString(KEY_PASSWORD, new) }
-        return true
-    }
 
     private fun currentPassword(): String {
         val stored = prefs.getString(KEY_PASSWORD, null)

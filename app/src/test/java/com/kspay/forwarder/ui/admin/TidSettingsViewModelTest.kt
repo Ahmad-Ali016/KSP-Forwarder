@@ -7,14 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private class FakeAdminPasswordStore(initial: String = "seed-password") : AdminPasswordStore {
-    private var current = initial
-    override fun verify(password: String): Boolean = password == current
-    override fun changePassword(current: String, new: String): Boolean {
-        if (!verify(current)) return false
-        this.current = new
-        return true
-    }
+private class FakeAdminPasswordStore(private val password: String = "seed-password") : AdminPasswordStore {
+    override fun verify(password: String): Boolean = password == this.password
 }
 
 private class FakeTerminalInfoStore(initial: String? = null) : TerminalInfoStore {
@@ -87,32 +81,5 @@ class TidSettingsViewModelTest {
         assertNull(terminalInfoStore.getTid())
         val state = viewModel.uiState.value as TidSettingsUiState.Unlocked
         assertEquals("TID must be exactly 8 digits", state.message)
-    }
-
-    @Test
-    fun `changePassword rejects a wrong current password`() {
-        val adminPasswordStore = FakeAdminPasswordStore("real-password")
-        val viewModel = TidSettingsViewModel(adminPasswordStore, FakeTerminalInfoStore())
-        viewModel.unlock("real-password")
-
-        viewModel.changePassword("wrong-current", "new-password")
-
-        val state = viewModel.uiState.value as TidSettingsUiState.Unlocked
-        assertEquals("Current password is incorrect", state.message)
-        assertTrue(adminPasswordStore.verify("real-password"))
-    }
-
-    @Test
-    fun `changePassword accepts a correct current password and the old password stops working`() {
-        val adminPasswordStore = FakeAdminPasswordStore("real-password")
-        val viewModel = TidSettingsViewModel(adminPasswordStore, FakeTerminalInfoStore())
-        viewModel.unlock("real-password")
-
-        viewModel.changePassword("real-password", "new-password")
-
-        val state = viewModel.uiState.value as TidSettingsUiState.Unlocked
-        assertEquals("Password changed", state.message)
-        assertTrue(adminPasswordStore.verify("new-password"))
-        assertTrue(!adminPasswordStore.verify("real-password"))
     }
 }

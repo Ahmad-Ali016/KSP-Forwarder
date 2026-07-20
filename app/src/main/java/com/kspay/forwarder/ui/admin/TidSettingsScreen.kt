@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -35,11 +34,7 @@ fun TidSettingsScreen(viewModel: TidSettingsViewModel, onBack: () -> Unit = {}) 
 
         when (val state = uiState) {
             is TidSettingsUiState.Locked -> LockedContent(state, onUnlock = viewModel::unlock)
-            is TidSettingsUiState.Unlocked -> UnlockedContent(
-                state = state,
-                onSaveTid = viewModel::saveTid,
-                onChangePassword = viewModel::changePassword,
-            )
+            is TidSettingsUiState.Unlocked -> UnlockedContent(state, onSaveTid = viewModel::saveTid)
         }
     }
 }
@@ -65,14 +60,8 @@ private fun LockedContent(state: TidSettingsUiState.Locked, onUnlock: (String) -
 }
 
 @Composable
-private fun UnlockedContent(
-    state: TidSettingsUiState.Unlocked,
-    onSaveTid: (String) -> Unit,
-    onChangePassword: (String, String) -> Unit,
-) {
+private fun UnlockedContent(state: TidSettingsUiState.Unlocked, onSaveTid: (String) -> Unit) {
     var tid by remember { mutableStateOf(state.currentTid.orEmpty()) }
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
 
     Text("Terminal ID", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 24.dp))
     Text("Current: " + (state.currentTid ?: "Not set"), style = MaterialTheme.typography.bodyMedium)
@@ -85,30 +74,6 @@ private fun UnlockedContent(
     )
     Button(onClick = { onSaveTid(tid) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Text("Save TID")
-    }
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
-
-    Text("Change Admin Password", style = MaterialTheme.typography.titleLarge)
-    OutlinedTextField(
-        value = currentPassword,
-        onValueChange = { currentPassword = it },
-        label = { Text("Current password") },
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-    OutlinedTextField(
-        value = newPassword,
-        onValueChange = { newPassword = it },
-        label = { Text("New password") },
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-    Button(
-        onClick = { onChangePassword(currentPassword, newPassword) },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    ) {
-        Text("Change Password")
     }
 
     if (state.message != null) {

@@ -39,11 +39,6 @@ class TidSettingsViewModel(
         _uiState.value = TidSettingsUiState.Unlocked(currentTid = tid, message = "TID saved")
     }
 
-    fun changePassword(current: String, new: String) {
-        val ok = adminPasswordStore.changePassword(current, new)
-        setUnlockedMessage(if (ok) "Password changed" else "Current password is incorrect")
-    }
-
     private fun setUnlockedMessage(message: String) {
         val state = _uiState.value as? TidSettingsUiState.Unlocked ?: return
         _uiState.value = state.copy(message = message)
