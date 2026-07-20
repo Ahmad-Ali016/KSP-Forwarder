@@ -47,10 +47,10 @@ private val TXN_TIME_FORMAT = SimpleDateFormat("d/M/yyyy HH:mm:ss", Locale.US)
  * because KPay's API never returns them at all; AID, APP label, TC, ACode, Batch, and Trace are
  * dropped too (2026-07-20) since they're processing-detail fields a passenger doesn't need and
  * aren't always populated (e.g. some contactless taps). The terminal model/version footer
- * (terminalType/appVersion) is dropped too -- not useful to a passenger. `OutTrade#` (the
- * forwarder's own outTradeNo) is always printed alongside KPay's own `Ref/Transaction ID` so a
- * transaction can be looked up directly in the KSPay backend/admin console -- outTradeNo is the
- * idempotency key KSPay's own database stores the record under.
+ * (terminalType/appVersion) is dropped too -- not useful to a passenger. `Trade` (the forwarder's
+ * own outTradeNo) is always printed alongside KPay's own `Ref/Tran. id` so a transaction can be
+ * looked up directly in the KSPay backend/admin console -- outTradeNo is the idempotency key
+ * KSPay's own database stores the record under.
  */
 object ReceiptFormatter {
 
@@ -61,7 +61,14 @@ object ReceiptFormatter {
         steps += PrintStep.text(EMAIL)
         steps += PrintStep.text("ABN:$ABN")
         result.kpayMerchantNo?.let { steps += PrintStep.text("MID:$it") }
-        tid?.let { steps += PrintStep.text("TID:$it") }
+        // Always printed, even when null (renders literally as "TID:null") -- per the user's
+        // explicit request, so the line's absence/presence itself signals whether KPay returned
+        // a TID this time, rather than silently disappearing. See BUILD_PROGRESS.md's 2026-07-20
+        // notes: KPay's /v2/pos/query/settlement response for this terminal has never included
+        // the `extra` object (where kpayTerminalNo lives) in any capture this session, despite
+        // TID visibly appearing on KPOS's own native settlement receipt -- likely a KPay-side gap
+        // worth raising with their support, not a bug in this fetch.
+        steps += PrintStep.text("TID:$tid")
         steps += PrintStep.text(DIVIDER)
 
         val scheme = PAY_METHOD_LABELS[result.payMethod] ?: "Card"
@@ -74,8 +81,8 @@ object ReceiptFormatter {
         // line is still added conditionally, never sent blank: KPay's docs annotate print-request
         // fields e.g. "String (1,100)" -- a minimum length of 1, not just a max.
         result.cardNo?.let { steps += PrintStep.lrText("Card No:", formatCardNo(it, result.cardInputCode)) }
-        result.refNo?.let { steps += PrintStep.lrText("Ref/Transaction ID:", it) }
-        steps += PrintStep.lrText("OutTrade#:", transaction.outTradeNo)
+        result.refNo?.let { steps += PrintStep.lrText("Ref/Tran. id", it) }
+        steps += PrintStep.lrText("Trade", transaction.outTradeNo)
         result.commitTime?.let { steps += PrintStep.lrText("Txn time:", formatCommitTime(it)) }
         steps += PrintStep.text(DIVIDER)
 
