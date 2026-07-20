@@ -96,6 +96,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             appId = BuildConfig.KPAY_APP_ID,
             forwarderVersion = BuildConfig.VERSION_NAME,
             deviceToken = BuildConfig.KSPAY_DEVICE_TOKEN,
+            terminalInfoStore = terminalInfoStore,
         )
     }
 

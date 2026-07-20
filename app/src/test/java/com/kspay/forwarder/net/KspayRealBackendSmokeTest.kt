@@ -83,7 +83,7 @@ class KspayRealBackendSmokeTest {
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
         )
-        val outbound = OutboundTransactionMapper.map(transaction, appId = "smoke-test-app-id", forwarderVersion = "1.0")
+        val outbound = OutboundTransactionMapper.map(transaction, appId = "smoke-test-app-id", forwarderVersion = "1.0", tid = "00000524")
 
         val response = api.forwardTransaction(outbound, deviceToken = "9fT06Qcx-bVgXHRCoWaONFeS7kLE4UthFQZ1ytHHO4Y")
 

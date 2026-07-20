@@ -9,6 +9,7 @@ import com.kspay.forwarder.data.LocalTransaction
 import com.kspay.forwarder.data.OutTradeNoGenerator
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
+import com.kspay.forwarder.kpay.TerminalInfoStore
 import com.kspay.forwarder.net.KspayClientFactory
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
@@ -52,9 +53,13 @@ class ForwardWorkerTest {
         )
     }
 
-    private fun buildWorker(outTradeNo: String): ForwardWorker {
+    private fun buildWorker(outTradeNo: String, tid: String? = "00000524"): ForwardWorker {
         val kspayApi = KspayClientFactory.create(baseUrl = server.url("/").toString())
         val kposApi = com.kspay.forwarder.kpay.KposClientFactory.create(baseUrl = server.url("/").toString())
+        val terminalInfoStore = object : TerminalInfoStore {
+            override fun getTid(): String? = tid
+            override fun saveTid(tid: String) {}
+        }
         val factory = ForwarderWorkerFactory(
             repository,
             kspayApi,
@@ -62,6 +67,7 @@ class ForwardWorkerTest {
             appId = "202xxx",
             forwarderVersion = "1.0",
             deviceToken = "token",
+            terminalInfoStore = terminalInfoStore,
         )
         return TestListenableWorkerBuilder<ForwardWorker>(RuntimeEnvironment.getApplication())
             .setInputData(workDataOf(ForwardWorker.KEY_OUT_TRADE_NO to outTradeNo))
@@ -78,6 +84,17 @@ class ForwardWorkerTest {
 
         assertTrue(result is ListenableWorker.Result.Success)
         assertEquals(TransactionState.FORWARDED, repository.findByOutTradeNo(transaction.outTradeNo)?.state)
+    }
+
+    @Test
+    fun `the forwarded request body carries the admin-set TID as kpayTerminalNo`() = runTest {
+        val transaction = succeededTransaction()
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        buildWorker(transaction.outTradeNo, tid = "00000524").doWork()
+
+        val recorded = server.takeRequest()
+        assertTrue(recorded.body.readUtf8().contains("\"kpayTerminalNo\":\"00000524\""))
     }
 
     @Test

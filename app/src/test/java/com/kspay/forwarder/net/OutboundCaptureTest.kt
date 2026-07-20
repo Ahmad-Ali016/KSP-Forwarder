@@ -91,6 +91,7 @@ class OutboundCaptureTest {
             realisticTransaction(),
             appId = "202607060000001",
             forwarderVersion = "1.0",
+            tid = "00000524",
         )
 
         api.forwardTransaction(outbound, deviceToken = "SAMPLE-DEVICE-TOKEN")
@@ -105,9 +106,11 @@ class OutboundCaptureTest {
         assertTrue(wireBody.contains("\"payResult\""))
         assertTrue(wireBody.contains("\"payAmount\""))
         assertTrue(wireBody.contains("\"orderAmount\""))
-        // Null-valued fields (e.g. kpayTerminalNo, always null in V1) must be omitted entirely,
-        // per KSPay's confirmed preferred wire format -- not sent as a literal `null`.
-        assertTrue(!wireBody.contains("\"kpayTerminalNo\""))
+        // kpayTerminalNo is now the driver-mapping key (the admin-entered TID, see
+        // BUILD_PROGRESS.md's 2026-07-20 "switch driver-mapping key" entry) -- it must be present
+        // whenever an admin has set one, not omitted. Other null-valued optional fields are still
+        // omitted entirely per KSPay's confirmed preferred wire format, not sent as a literal `null`.
+        assertTrue(wireBody.contains("\"kpayTerminalNo\":\"00000524\""))
         // Round-trip proof that the bytes actually on the wire decode back to the exact object we
         // built -- not just a string-contains sanity check.
         assertEquals(outbound, outboundAdapter.fromJson(wireBody))

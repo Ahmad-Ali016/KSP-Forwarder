@@ -13,6 +13,7 @@ import com.kspay.forwarder.data.OutTradeNoGenerator
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
 import com.kspay.forwarder.kpay.KposClientFactory
+import com.kspay.forwarder.kpay.TerminalInfoStore
 import com.kspay.forwarder.net.KspayClientFactory
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
@@ -49,6 +50,10 @@ class ReconciliationWorkerTest {
             appId = "202xxx",
             forwarderVersion = "1.0",
             deviceToken = "token",
+            terminalInfoStore = object : TerminalInfoStore {
+                override fun getTid(): String? = "00000524"
+                override fun saveTid(tid: String) {}
+            },
         )
 
         // The factory must be registered here too: ReconciliationWorker enqueues a real

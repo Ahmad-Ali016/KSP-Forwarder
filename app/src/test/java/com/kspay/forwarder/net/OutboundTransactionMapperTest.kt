@@ -36,14 +36,19 @@ class OutboundTransactionMapperTest {
 
     @Test
     fun `maps every field of the frozen outbound contract from a stored KPay result`() {
-        val outbound = OutboundTransactionMapper.map(sampleTransaction(), appId = "202xxxxxxxxxx", forwarderVersion = "1.0")
+        val outbound = OutboundTransactionMapper.map(
+            sampleTransaction(),
+            appId = "202xxxxxxxxxx",
+            forwarderVersion = "1.0",
+            tid = "00000524",
+        )
 
         assertEquals("OT123", outbound.outTradeNo)
         assertEquals("KP123", outbound.kpayOutTradeNo)
         assertEquals("TXN1", outbound.transactionNo)
         assertEquals("REF1", outbound.refNo)
         assertEquals("DEV123456789", outbound.deviceID)
-        assertNull(outbound.kpayTerminalNo)
+        assertEquals("00000524", outbound.kpayTerminalNo)
         assertEquals("202xxxxxxxxxx", outbound.appId)
         assertEquals("KPOS-A1", outbound.terminalType)
         assertEquals("6.10.37", outbound.appVersion)
@@ -72,7 +77,7 @@ class OutboundTransactionMapperTest {
 
     @Test
     fun `serializes and parses back to an identical value (round-trip fidelity)`() {
-        val outbound = OutboundTransactionMapper.map(sampleTransaction(), appId = "202xxxxxxxxxx", forwarderVersion = "1.0")
+        val outbound = OutboundTransactionMapper.map(sampleTransaction(), appId = "202xxxxxxxxxx", forwarderVersion = "1.0", tid = "00000524")
         val adapter = moshi.adapter(OutboundTransaction::class.java)
 
         val parsedBack = adapter.fromJson(adapter.toJson(outbound))
@@ -80,9 +85,16 @@ class OutboundTransactionMapperTest {
         assertEquals(outbound, parsedBack)
     }
 
+    @Test
+    fun `maps a null tid when no admin has set one yet`() {
+        val outbound = OutboundTransactionMapper.map(sampleTransaction(), appId = "202xxxxxxxxxx", forwarderVersion = "1.0", tid = null)
+
+        assertNull(outbound.kpayTerminalNo)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `mapping a transaction with no stored result fails loudly`() {
-        OutboundTransactionMapper.map(sampleTransaction().copy(rawSaleResultJson = null), appId = "x", forwarderVersion = "1.0")
+        OutboundTransactionMapper.map(sampleTransaction().copy(rawSaleResultJson = null), appId = "x", forwarderVersion = "1.0", tid = null)
     }
 
     @Test
@@ -92,6 +104,7 @@ class OutboundTransactionMapperTest {
             sampleTransaction().copy(rawSaleResultJson = raw),
             appId = "202xxxxxxxxxx",
             forwarderVersion = "1.0",
+            tid = "00000524",
         )
 
         val logged = outbound.toString()

@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
+import com.kspay.forwarder.kpay.TerminalInfoStore
 import com.kspay.forwarder.net.ForwardResponse
 import com.kspay.forwarder.net.KspayApi
 import com.kspay.forwarder.net.OutboundTransactionMapper
@@ -25,6 +26,7 @@ class ForwardWorker(
     private val appId: String,
     private val forwarderVersion: String,
     private val deviceToken: String,
+    private val terminalInfoStore: TerminalInfoStore,
 ) : CoroutineWorker(context, params) {
 
     private val forwardResponseAdapter =
@@ -35,7 +37,7 @@ class ForwardWorker(
         val transaction = repository.findByOutTradeNo(outTradeNo) ?: return Result.failure()
         if (transaction.state != TransactionState.SUCCEEDED) return Result.success()
 
-        val outbound = OutboundTransactionMapper.map(transaction, appId, forwarderVersion)
+        val outbound = OutboundTransactionMapper.map(transaction, appId, forwarderVersion, terminalInfoStore.getTid())
         val response = try {
             api.forwardTransaction(outbound, deviceToken)
         } catch (e: IOException) {
