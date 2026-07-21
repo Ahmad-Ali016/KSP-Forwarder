@@ -1,6 +1,7 @@
 package com.kspay.forwarder.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -35,17 +36,28 @@ class ReconciliationWorker(
             val data = try {
                 api.query(transaction.outTradeNo).data
             } catch (e: IOException) {
+                Log.w(TAG, "reconcileStuckPolling: query failed for ${transaction.outTradeNo}: ${e.message}")
                 null // try again next reconciliation pass
             } ?: continue
             val finalized: LocalTransaction? = QueryResultFinalizer.apply(repository, transaction, data)
-            if (finalized?.state == TransactionState.SUCCEEDED) workManager.enqueueForward(finalized.outTradeNo)
+            if (finalized?.state == TransactionState.SUCCEEDED) {
+                Log.d(TAG, "reconcileStuckPolling: ${finalized.outTradeNo} resolved to SUCCEEDED, enqueuing ForwardWorker")
+                workManager.enqueueForward(finalized.outTradeNo)
+            } else if (finalized != null && finalized.state != TransactionState.POLLING) {
+                Log.d(TAG, "reconcileStuckPolling: ${finalized.outTradeNo} resolved to ${finalized.state}")
+            }
         }
     }
 
     private suspend fun reconcileUnforwardedSucceeded() {
         val workManager = WorkManager.getInstance(applicationContext)
         for (transaction in repository.findByState(TransactionState.SUCCEEDED)) {
+            Log.d(TAG, "reconcileUnforwardedSucceeded: re-enqueuing ForwardWorker for ${transaction.outTradeNo}")
             workManager.enqueueForward(transaction.outTradeNo)
         }
+    }
+
+    private companion object {
+        const val TAG = "ReconciliationWorker"
     }
 }

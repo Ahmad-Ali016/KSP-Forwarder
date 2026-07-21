@@ -12,10 +12,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.work.WorkManager
 import com.kspay.forwarder.ForwarderApplication
 import com.kspay.forwarder.crypto.Money
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.di.AppContainer
+import com.kspay.forwarder.sync.scheduleReconciliation
 import com.kspay.forwarder.ui.admin.TidSettingsScreen
 import com.kspay.forwarder.ui.admin.TidSettingsViewModel
 import com.kspay.forwarder.ui.fareentry.FareEntryScreen
@@ -50,16 +52,19 @@ fun ForwarderNavHost(modifier: Modifier = Modifier) {
             // resolved (and its AndroidKeyStore-backed WorkingKeyStore built) once Charge is
             // actually tapped, not merely on composing this screen.
             val container = rememberAppContainer()
+            val context = LocalContext.current
             val scope = rememberCoroutineScope()
             FareEntryScreen(
                 onCharge = { amount ->
                     scope.launch {
+                        WorkManager.getInstance(context).scheduleReconciliation()
                         val outTradeNo = container.saleController.charge(Money.toKpayCents(amount))
                         navController.navigate(ForwarderDestination.InProgress.routeFor(outTradeNo))
                     }
                 },
                 onSimulate = { amount ->
                     scope.launch {
+                        WorkManager.getInstance(context).scheduleReconciliation()
                         val outTradeNo = container.saleController.simulateSuccess(Money.toKpayCents(amount))
                         navController.navigate(ForwarderDestination.Result.routeFor(outTradeNo))
                     }
