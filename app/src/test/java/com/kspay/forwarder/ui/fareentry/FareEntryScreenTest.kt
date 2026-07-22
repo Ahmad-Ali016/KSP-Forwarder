@@ -50,11 +50,11 @@ class FareEntryScreenTest {
     }
 
     @Test
-    fun `tapping History (debug) invokes the callback`() {
+    fun `tapping History invokes the callback`() {
         var historyOpened = false
         composeRule.setContent { FareEntryScreen(onViewHistory = { historyOpened = true }) }
 
-        composeRule.onNodeWithText("History (debug)").performScrollTo().performClick()
+        composeRule.onNodeWithText("History").performScrollTo().performClick()
 
         assert(historyOpened)
     }

@@ -20,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kspay.forwarder.BuildConfig
 import java.math.BigDecimal
 
 private val KEYPAD_KEYS = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫')
@@ -67,6 +66,13 @@ fun FareEntryScreen(
             Text("Charge")
         }
 
+        OutlinedButton(
+            onClick = onViewHistory,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) {
+            Text("History")
+        }
+
         // Always visible, not debug-gated -- this must work on real production terminals
         // running the release build, since an admin sets the terminal's TID once after
         // installing the app (see TidSettingsScreen).
@@ -75,26 +81,6 @@ fun FareEntryScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         ) {
             Text("TID")
-        }
-
-        // Debug-build-only: bypasses KPOS entirely and fabricates a realistic SUCCEEDED
-        // transaction, so ForwardWorker's forward-to-KSPay path can be tested before a
-        // physical terminal exists. Stripped from release builds by BuildConfig.DEBUG.
-        if (BuildConfig.DEBUG) {
-            OutlinedButton(
-                onClick = { onSimulate(uiState.amount) },
-                enabled = uiState.isValid,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Text("Simulate (debug)")
-            }
-
-            OutlinedButton(
-                onClick = onViewHistory,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Text("History (debug)")
-            }
         }
     }
 }
