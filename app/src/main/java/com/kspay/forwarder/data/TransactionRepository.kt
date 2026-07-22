@@ -1,6 +1,9 @@
 package com.kspay.forwarder.data
 
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.Flow
+
+private const val RETENTION_DAYS = 90L
 
 /**
  * Owns timestamps and outTradeNo assignment so LocalTransaction stays a plain data holder.
@@ -39,4 +42,10 @@ class TransactionRepository(
     suspend fun findByOutTradeNo(outTradeNo: String): LocalTransaction? = dao.findByOutTradeNo(outTradeNo)
 
     suspend fun findByState(state: TransactionState): List<LocalTransaction> = dao.findByState(state)
+
+    /** Deletes FORWARDED/NON_SUCCESS/ABORTED transactions older than the retention window. Returns the row count deleted. */
+    suspend fun deleteTransactionsOlderThanRetention(): Int {
+        val cutoffMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(RETENTION_DAYS)
+        return dao.deleteOlderThan(cutoffMillis)
+    }
 }

@@ -25,4 +25,14 @@ interface LocalTransactionDao {
 
     @Query("SELECT * FROM transactions ORDER BY createdAt DESC, id DESC")
     fun observeAll(): Flow<List<LocalTransaction>>
+
+    // FORWARDED/NON_SUCCESS/ABORTED are the only terminal states with nothing further to happen
+    // to them -- ANOMALY is deliberately excluded (held for manual review, see TransactionState's
+    // KDoc) and every other state is non-terminal, so excluding by state is a safety net on top
+    // of the age check in case something ever gets stuck.
+    @Query(
+        "DELETE FROM transactions WHERE updatedAt < :cutoffMillis " +
+            "AND state IN ('FORWARDED', 'NON_SUCCESS', 'ABORTED')",
+    )
+    suspend fun deleteOlderThan(cutoffMillis: Long): Int
 }

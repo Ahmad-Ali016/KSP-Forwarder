@@ -9,17 +9,20 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.kspay.forwarder.data.ForwarderDatabase
+import com.kspay.forwarder.data.LocalTransaction
 import com.kspay.forwarder.data.OutTradeNoGenerator
 import com.kspay.forwarder.data.TransactionRepository
 import com.kspay.forwarder.data.TransactionState
 import com.kspay.forwarder.kpay.KposClientFactory
 import com.kspay.forwarder.kpay.TerminalInfoStore
 import com.kspay.forwarder.net.KspayClientFactory
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -130,5 +133,21 @@ class ReconciliationWorkerTest {
         val workInfos = WorkManager.getInstance(context).getWorkInfosForUniqueWork("forward-${draft.outTradeNo}").get()
         assertEquals(1, workInfos.size)
         assertTrue(workInfos.first().state != WorkInfo.State.FAILED)
+    }
+
+    @Test
+    fun `doWork also deletes a FORWARDED transaction past the retention window`() = runTest {
+        val old = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(91)
+        db.localTransactionDao().insert(
+            LocalTransaction(
+                outTradeNo = "OLD1", state = TransactionState.FORWARDED,
+                payAmountCents = "000000000100", currency = "036", paymentType = 1,
+                createdAt = old, updatedAt = old,
+            ),
+        )
+
+        buildWorker().doWork()
+
+        assertNull(repository.findByOutTradeNo("OLD1"))
     }
 }

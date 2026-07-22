@@ -1,10 +1,12 @@
 package com.kspay.forwarder.data
 
 import androidx.room.Room
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -62,5 +64,31 @@ class TransactionRepositoryTest {
         assertEquals(1, succeeded.size)
         assertEquals(1, drafts.size)
         assertNotNull(succeeded.first())
+    }
+
+    @Test
+    fun `deleteTransactionsOlderThanRetention removes aged FORWARDED but keeps aged ANOMALY`() = runTest {
+        val old = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(91)
+        val dao = db.localTransactionDao()
+        dao.insert(
+            LocalTransaction(
+                outTradeNo = "OLD_FORWARDED", state = TransactionState.FORWARDED,
+                payAmountCents = "000000000100", currency = "036", paymentType = 1,
+                createdAt = old, updatedAt = old,
+            ),
+        )
+        dao.insert(
+            LocalTransaction(
+                outTradeNo = "OLD_ANOMALY", state = TransactionState.ANOMALY,
+                payAmountCents = "000000000100", currency = "036", paymentType = 1,
+                createdAt = old, updatedAt = old,
+            ),
+        )
+
+        val deleted = repository.deleteTransactionsOlderThanRetention()
+
+        assertEquals(1, deleted)
+        assertNull(repository.findByOutTradeNo("OLD_FORWARDED"))
+        assertNotNull(repository.findByOutTradeNo("OLD_ANOMALY"))
     }
 }

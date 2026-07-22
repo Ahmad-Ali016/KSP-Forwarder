@@ -5,6 +5,7 @@ import androidx.room.Room
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -78,5 +79,28 @@ class LocalTransactionDaoTest {
 
         assertEquals(1, draft.size)
         assertEquals("OT1", draft.first().outTradeNo)
+    }
+
+    @Test
+    fun `deleteOlderThan removes only aged FORWARDED NON_SUCCESS ABORTED rows`() = runTest {
+        val cutoff = 1_000L
+        val aged = cutoff - 1
+        val recent = cutoff + 1
+        dao.insert(sample("OLD_FORWARDED", TransactionState.FORWARDED).copy(updatedAt = aged))
+        dao.insert(sample("OLD_NON_SUCCESS", TransactionState.NON_SUCCESS).copy(updatedAt = aged))
+        dao.insert(sample("OLD_ABORTED", TransactionState.ABORTED).copy(updatedAt = aged))
+        dao.insert(sample("OLD_ANOMALY", TransactionState.ANOMALY).copy(updatedAt = aged))
+        dao.insert(sample("OLD_POLLING", TransactionState.POLLING).copy(updatedAt = aged))
+        dao.insert(sample("RECENT_FORWARDED", TransactionState.FORWARDED).copy(updatedAt = recent))
+
+        val deleted = dao.deleteOlderThan(cutoff)
+
+        assertEquals(3, deleted)
+        assertNull(dao.findByOutTradeNo("OLD_FORWARDED"))
+        assertNull(dao.findByOutTradeNo("OLD_NON_SUCCESS"))
+        assertNull(dao.findByOutTradeNo("OLD_ABORTED"))
+        assertNotNull(dao.findByOutTradeNo("OLD_ANOMALY"))
+        assertNotNull(dao.findByOutTradeNo("OLD_POLLING"))
+        assertNotNull(dao.findByOutTradeNo("RECENT_FORWARDED"))
     }
 }

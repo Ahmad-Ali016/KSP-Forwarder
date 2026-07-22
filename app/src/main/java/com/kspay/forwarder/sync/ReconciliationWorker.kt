@@ -14,8 +14,9 @@ import java.io.IOException
 
 /**
  * Periodic safety net (~15 min in production wiring). Re-queries transactions stuck in
- * POLLING one attempt at a time (PollUseCase's own 90s budget already tried harder), and
- * re-enqueues ForwardWorker for any SUCCEEDED transaction that never got forwarded.
+ * POLLING one attempt at a time (PollUseCase's own 90s budget already tried harder),
+ * re-enqueues ForwardWorker for any SUCCEEDED transaction that never got forwarded, and
+ * deletes FORWARDED/NON_SUCCESS/ABORTED transactions past the 90-day retention window.
  */
 class ReconciliationWorker(
     context: Context,
@@ -27,6 +28,7 @@ class ReconciliationWorker(
     override suspend fun doWork(): Result {
         reconcileStuckPolling()
         reconcileUnforwardedSucceeded()
+        cleanupOldTransactions()
         return Result.success()
     }
 
@@ -54,6 +56,13 @@ class ReconciliationWorker(
         for (transaction in repository.findByState(TransactionState.SUCCEEDED)) {
             Log.d(TAG, "reconcileUnforwardedSucceeded: re-enqueuing ForwardWorker for ${transaction.outTradeNo}")
             workManager.enqueueForward(transaction.outTradeNo)
+        }
+    }
+
+    private suspend fun cleanupOldTransactions() {
+        val deleted = repository.deleteTransactionsOlderThanRetention()
+        if (deleted > 0) {
+            Log.d(TAG, "cleanupOldTransactions: deleted $deleted transaction(s) past the retention window")
         }
     }
 
