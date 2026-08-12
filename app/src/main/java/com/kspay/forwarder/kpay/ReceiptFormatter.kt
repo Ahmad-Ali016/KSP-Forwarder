@@ -6,7 +6,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val TITLE = "KSPay"
 private const val EMAIL = "support@kspay.com.au"
 private const val ABN = "98642363853"
 private const val DIVIDER = "------------------------------"
@@ -41,24 +40,27 @@ private val TXN_TIME_FORMAT = SimpleDateFormat("d/M/yyyy HH:mm:ss", Locale.US)
 
 /**
  * Builds the /v2/pos/print step list for a passenger receipt, modeled on KPay's own printed
- * receipt (see BUILD_PROGRESS.md's 2026-07-19/2026-07-20 receipt-printing entries for the source
- * photos and the field decisions this was built against). Deliberately limited to what a
- * passenger receipt actually needs -- Platform MID, Platform TID, Card SN, and ATC are dropped
- * because KPay's API never returns them at all; AID, APP label, TC, ACode, Batch, and Trace are
- * dropped too (2026-07-20) since they're processing-detail fields a passenger doesn't need and
- * aren't always populated (e.g. some contactless taps). The terminal model/version footer
- * (terminalType/appVersion) is dropped too -- not useful to a passenger, as is the
- * "------Merchant Copy------" divider line (2026-07-20). `Trade:` (the forwarder's own
- * outTradeNo) is always printed alongside KPay's own `Ref/Tran. id:` so a transaction can be
- * looked up directly in the KSPay backend/admin console -- outTradeNo is the idempotency key
- * KSPay's own database stores the record under.
+ * receipt (see BUILD_PROGRESS.md's 2026-07-19/2026-07-20 receipt-printing entries, and the
+ * 2026-08-12/13 receipt-compliance follow-up, for the source photos and field decisions this was
+ * built against). Platform MID, Platform TID, Card SN, and ATC are omitted because KPay's API
+ * never returns them at all. Every other field KPay's `Receipt Printing Standards` sheet marks
+ * mandatory for a bank-card consumption receipt is included: the header uses KPay's own
+ * `kpayMerchantNameEN`/`kpayMerchantAddress` (not a self-chosen brand string, per KPay's review
+ * feedback), a `BAR_CODE` step encodes `refNo` right after the payment-type line (matching KPay's
+ * own receipt layout), and `aidLabel`/`aid`/`tc`/`authCode`/`batchNo`/`traceNo`/`terminalType`/
+ * `appVersion` are all printed (restored 2026-08-13 after being dropped 2026-07-20 as passenger
+ * clutter -- KPay's compliance review requires them). `Trade:` (the forwarder's own outTradeNo)
+ * is always printed alongside KPay's own `Ref/Tran. id:` so a transaction can be looked up
+ * directly in the KSPay backend/admin console -- outTradeNo is the idempotency key KSPay's own
+ * database stores the record under.
  */
 object ReceiptFormatter {
 
     fun buildSteps(transaction: LocalTransaction, result: QueryResponse, tid: String?): List<PrintStep> {
         val steps = mutableListOf<PrintStep>()
 
-        steps += PrintStep.text(TITLE, size = "L", alignment = "CENTER")
+        result.kpayMerchantNameEN?.let { steps += PrintStep.text(it, size = "L", alignment = "CENTER") }
+        result.kpayMerchantAddress?.let { steps += PrintStep.text(it, alignment = "CENTER") }
         steps += PrintStep.text(EMAIL)
         steps += PrintStep.text("ABN:$ABN")
         result.kpayMerchantNo?.let { steps += PrintStep.text("MID:$it") }
@@ -75,15 +77,25 @@ object ReceiptFormatter {
         val scheme = PAY_METHOD_LABELS[result.payMethod] ?: "Card"
         val type = TRANSACTION_TYPE_LABELS[result.transactionType] ?: "Transaction"
         steps += PrintStep.text("$scheme $type", size = "L")
+        // Barcode goes here, right after the payment-type line and before the Card No detail
+        // block -- confirmed from a real KPay-native receipt photo, not the spec table's row
+        // adjacency alone. KPay's docs: barcodeContent must be numeric only, 1-20 chars; refNo
+        // values observed live this session (e.g. "260611000662") satisfy that.
+        result.refNo?.let { steps += PrintStep.barcode(it) }
 
-        // Only fields a passenger receipt actually needs -- aid/aidLabel/tc/authCode/batchNo/
-        // traceNo (EMV/processing-detail fields, not always populated) are dropped entirely, not
-        // just conditionally, per the 2026-07-20 decision to stop chasing them. Each remaining
-        // line is still added conditionally, never sent blank: KPay's docs annotate print-request
-        // fields e.g. "String (1,100)" -- a minimum length of 1, not just a max.
+        // Each line is added conditionally, never sent blank: KPay's docs annotate print-request
+        // fields e.g. "String (1,100)" -- a minimum length of 1, not just a max -- and an empty
+        // string reproduced a real HTTP 500 from the terminal's print handler.
         result.cardNo?.let { steps += PrintStep.lrText("Card No:", formatCardNo(it, result.cardInputCode)) }
+        result.aidLabel?.let { steps += PrintStep.lrText("APP label:", it) }
+        result.aid?.let { steps += PrintStep.lrText("AID:", it) }
         result.refNo?.let { steps += PrintStep.lrText("Ref/Tran. id:", it) }
         steps += PrintStep.lrText("Trade:", transaction.outTradeNo)
+        result.tc?.let { steps += PrintStep.lrText("TC:", it) }
+        result.authCode?.let { steps += PrintStep.lrText("Expiry: XX/XX", "ACode: $it") }
+        if (result.batchNo != null || result.traceNo != null) {
+            steps += PrintStep.lrText("Batch: ${result.batchNo.orEmpty()}", "Trace: ${result.traceNo.orEmpty()}")
+        }
         result.commitTime?.let { steps += PrintStep.lrText("Txn time:", formatCommitTime(it)) }
         steps += PrintStep.text(DIVIDER)
 
@@ -97,9 +109,13 @@ object ReceiptFormatter {
 
         steps += PrintStep.text("NO SIGNATURE REQUIRED", size = "L")
         steps += PrintStep.text("I agree to pay the above total amount according to card issuer agreement.")
+        result.receiptDisclaimersEN?.let { steps += PrintStep.text(it) }
         steps += PrintStep.feed()
         steps += PrintStep.text("PLEASE RETAIN RECEIPT", alignment = "CENTER")
         steps += PrintStep.text("FOR YOUR RECORDS", alignment = "CENTER")
+        if (result.terminalType != null && result.appVersion != null) {
+            steps += PrintStep.text("${result.terminalType} - ${result.appVersion}", alignment = "CENTER")
+        }
 
         return steps
     }

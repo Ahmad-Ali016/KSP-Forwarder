@@ -5,9 +5,9 @@ data class PrintRequest(val steps: List<PrintStep>)
 
 /**
  * One printer instruction. printType selects which fields apply (TEXT: textContent; LR_TEXT:
- * leftTextContent/rightTextContent; FEED: feedLine). Barcode/QR/image steps are not used by
- * ReceiptFormatter (no barcode on the receipt, per the 2026-07-19 decision) but the fields exist
- * to match KPay's documented request shape exactly.
+ * leftTextContent/rightTextContent; BAR_CODE: barcodeContent; FEED: feedLine). QR/image steps
+ * are not used by ReceiptFormatter but the fields exist to match KPay's documented request shape
+ * exactly.
  *
  * `alignment`/`textSize`/`feedLine` are always sent, never left null -- confirmed live
  * (2026-07-20) that KPOS's own server unconditionally calls `PrintBody.Step.getAlignment()` and
@@ -38,5 +38,7 @@ data class PrintStep(
             PrintStep(printType = "LR_TEXT", leftTextContent = left, rightTextContent = right, textSize = size)
 
         fun feed(lines: Int = 1) = PrintStep(printType = "FEED", feedLine = lines)
+
+        fun barcode(content: String) = PrintStep(printType = "BAR_CODE", barcodeContent = content)
     }
 }

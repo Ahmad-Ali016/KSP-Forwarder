@@ -81,6 +81,19 @@ class KposApiPrintTest {
     }
 
     @Test
+    fun `print request serializes a barcode step with an explicit alignment`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"code":10000,"data":{}}"""))
+
+        val result = api.print(PrintRequest(listOf(PrintStep.barcode("260611000662"))))
+
+        assertTrue(result.isSuccess)
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"printType\":\"BAR_CODE\""))
+        assertTrue(body.contains("\"barcodeContent\":\"260611000662\""))
+        assertTrue(body.contains("\"alignment\":\"LEFT\""))
+    }
+
+    @Test
     fun `print rejection is not marked successful`() = runTest {
         server.enqueue(MockResponse().setBody("""{"code":50003,"data":null,"message":"Printer status abnormal"}"""))
 
