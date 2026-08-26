@@ -14,6 +14,14 @@ val localProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
+// Release signing material lives in its own gitignored file (keystore.properties), separate from
+// local.properties, so it stays absent -- and the release build falls back to debug signing, same
+// as today -- on any clone/CI that hasn't provisioned a real release keystore yet.
+val keystoreProperties = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val releaseStoreFilePath = keystoreProperties.getProperty("storeFile")
+
 android {
     namespace = "com.kspay.forwarder"
     compileSdk {
@@ -48,15 +56,30 @@ android {
         buildConfigField("String", "ADMIN_DEFAULT_PASSWORD", "\"${localProperties.getProperty("admin.defaultPassword", "kspay-admin")}\"")
     }
 
+    signingConfigs {
+        if (releaseStoreFilePath != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFilePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = true
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Store submission (Phase 9) will use a real release keystore; for now this produces
-            // an installable, dev-signed release APK so R8 shrinking can actually be smoke-tested.
-            signingConfig = signingConfigs.getByName("debug")
+            // Real release keystore once keystore.properties is provisioned (see README/CLAUDE.md);
+            // falls back to dev-signing so a clone without one still builds (e.g. for R8 smoke tests).
+            signingConfig = if (releaseStoreFilePath != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
