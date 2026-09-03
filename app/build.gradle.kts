@@ -34,8 +34,8 @@ android {
         applicationId = "com.kspay.forwarder"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -170,4 +170,12 @@ tasks.withType<Test> {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("KSP-release.apk")
+        }
+    }
 }
